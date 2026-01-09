@@ -58,12 +58,23 @@ def create_app(config_name=None):
     socketio.init_app(app, cors_allowed_origins="*")
     
     # Configurar login manager
-    login_manager.login_view = 'admin.login'
+    login_manager.login_view = 'empleado.login'
     login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
     
     @login_manager.user_loader
     def load_user(user_id):
-        """Carga el usuario administrador desde la base de datos para Flask-Login"""
+        """
+        Carga el usuario desde la base de datos para Flask-Login.
+        Intenta cargar primero como Empleado, luego como UsuarioSistema.
+        """
+        from app.models import Empleado
+        
+        # Intentar cargar como Empleado
+        empleado = Empleado.query.get(int(user_id))
+        if empleado:
+            return empleado
+        
+        # Si no es empleado, intentar como UsuarioSistema (admin)
         return UsuarioSistema.query.get(int(user_id))
     
     # Registrar blueprints (rutas)

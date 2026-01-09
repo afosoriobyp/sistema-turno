@@ -119,16 +119,15 @@ class Usuario(db.Model):
         }
 
 
-class Empleado(db.Model):
+class Empleado(UserMixin, db.Model):
     """
     Modelo para los empleados del sistema.
-    NOTA: Este modelo ya NO se usa para login. Los empleados son solo datos de personal.
-    Para autenticación administrativa, usar UsuarioSistema.
+    Los empleados pueden hacer login para atender turnos.
     
     Atributos:
         id: Identificador único del empleado
-        usuario: Nombre de usuario (DEPRECADO - mantener por compatibilidad)
-        password_hash: Contraseña encriptada (DEPRECADO - mantener por compatibilidad)
+        usuario: Nombre de usuario para login
+        password_hash: Contraseña encriptada
         nombre: Nombre completo del empleado
         direccion: Dirección física del empleado
         telefono: Número de teléfono de contacto
