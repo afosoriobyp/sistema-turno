@@ -33,6 +33,63 @@ def superadmin_required(f):
     return decorated_function
 
 
+# ===== ENDPOINT TEMPORAL PARA CREAR ADMIN =====
+
+@admin_bp.route('/crear-admin-sistema')
+def crear_admin_sistema():
+    """
+    Endpoint temporal para crear usuario administrador del sistema.
+    ⚠️ ELIMINAR DESPUÉS DE CREAR EL ADMIN
+    """
+    try:
+        # Verificar si ya existe un superadmin
+        admin_existente = UsuarioSistema.query.filter_by(es_superadmin=True).first()
+        
+        if admin_existente:
+            return f"""
+            <h2>⚠️ Ya existe un administrador del sistema</h2>
+            <p><strong>Email:</strong> {admin_existente.email}</p>
+            <p><strong>Nombre:</strong> {admin_existente.nombre}</p>
+            <p><a href="/admin/login">Ir al login de administradores</a></p>
+            """, 200
+        
+        # Crear nuevo UsuarioSistema superadmin
+        import os
+        admin_email = os.environ.get('ADMIN_EMAIL', 'admin@sistema-turno.com')
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'Admin2026*')
+        
+        nuevo_admin = UsuarioSistema(
+            email=admin_email,
+            nombre='Administrador del Sistema',
+            es_superadmin=True,
+            activo=True
+        )
+        nuevo_admin.set_password(admin_password)
+        
+        db.session.add(nuevo_admin)
+        db.session.commit()
+        
+        return f"""
+        <h2>✅ Administrador del Sistema Creado Exitosamente</h2>
+        <p><strong>Email:</strong> {admin_email}</p>
+        <p><strong>Contraseña:</strong> {admin_password}</p>
+        <p><strong>Tipo:</strong> Superadmin</p>
+        <hr>
+        <p><a href="/admin/login" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Ir al Login de Administradores</a></p>
+        <hr>
+        <p style="color: red;">⚠️ IMPORTANTE: Guarda estas credenciales y cambia la contraseña después del primer login.</p>
+        <p style="color: orange;">🗑️ Eliminar esta ruta después de crear el admin (seguridad).</p>
+        """, 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return f"""
+        <h2>❌ Error al crear administrador</h2>
+        <p>{str(e)}</p>
+        <p><a href="/">Volver al inicio</a></p>
+        """, 500
+
+
 # ===== RUTA DE LOGIN =====
 
 @admin_bp.route('/login', methods=['GET', 'POST'])
