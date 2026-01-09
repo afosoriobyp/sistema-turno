@@ -50,6 +50,10 @@ class UsuarioSistema(UserMixin, db.Model):
         """Verifica si la contraseña proporcionada es correcta"""
         return check_password_hash(self.password_hash, password)
     
+    def get_id(self):
+        """Retorna un ID único con prefijo para Flask-Login"""
+        return f"usr_{self.id}"
+    
     def to_dict(self):
         """Convierte el objeto a diccionario para JSON"""
         return {

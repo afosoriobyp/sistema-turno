@@ -175,8 +175,15 @@ def dashboard():
     """Dashboard principal - muestra contenido según el rol del usuario"""
     
     # Verificar que el usuario sea un UsuarioSistema
-    if not isinstance(current_user._get_current_object(), UsuarioSistema):
-        flash('Debes iniciar sesión como administrador para acceder a esta página', 'error')
+    try:
+        user_obj = current_user._get_current_object()
+        if not isinstance(user_obj, UsuarioSistema):
+            flash('Debes iniciar sesión como administrador para acceder a esta página', 'error')
+            logout_user()
+            return redirect(url_for('admin.login'))
+    except Exception as e:
+        # Si hay error obteniendo el objeto, re-autenticar
+        flash(f'Error de sesión: {str(e)}. Por favor, inicia sesión nuevamente.', 'error')
         logout_user()
         return redirect(url_for('admin.login'))
     
