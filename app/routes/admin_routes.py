@@ -26,6 +26,13 @@ def superadmin_required(f):
         if not current_user.is_authenticated:
             flash('Debes iniciar sesión para acceder a esta página', 'error')
             return redirect(url_for('admin.login'))
+        
+        # Verificar que sea un UsuarioSistema
+        if not isinstance(current_user._get_current_object(), UsuarioSistema):
+            flash('Debes iniciar sesión como administrador', 'error')
+            logout_user()
+            return redirect(url_for('admin.login'))
+        
         if not current_user.es_superadmin:
             flash('No tienes permisos para acceder a esta sección', 'error')
             return redirect(url_for('admin.dashboard'))
@@ -147,6 +154,13 @@ def logout():
 @login_required
 def dashboard():
     """Dashboard principal - muestra contenido según el rol del usuario"""
+    
+    # Verificar que el usuario sea un UsuarioSistema
+    if not isinstance(current_user._get_current_object(), UsuarioSistema):
+        flash('Debes iniciar sesión como administrador para acceder a esta página', 'error')
+        logout_user()
+        return redirect(url_for('admin.login'))
+    
     # Obtener estadísticas de turnos
     if current_user.es_superadmin:
         # Superadmin ve todos los turnos con eager loading de relaciones
