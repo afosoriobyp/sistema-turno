@@ -244,20 +244,35 @@ def cambiar_estado_turno(turno_id):
         # Si se marca como atendido, registrar fecha y empleado
         if nuevo_estado == 'atendido':
             turno.fecha_atencion = datetime.utcnow()
-            # Asignar el empleado_id (current_user ya es un Empleado)
-            print(f"[DEBUG] Current user type: {type(current_user)}")
-            print(f"[DEBUG] Current user ID: {current_user.id}")
-            print(f"[DEBUG] Current user nombre: {current_user.nombre}")
-            print(f"[DEBUG] Current user es Empleado: {isinstance(current_user._get_current_object(), Empleado)}")
+            
+            # Determinar el ID del empleado según el tipo de current_user
+            from app.models import UsuarioSistema
+            empleado_id = None
+            
+            print(f"[DEBUG] Current user type: {type(current_user._get_current_object())}")
+            print(f"[DEBUG] Current user: {current_user}")
+            
+            if isinstance(current_user._get_current_object(), UsuarioSistema):
+                # Si es UsuarioSistema, obtener el empleado vinculado
+                if current_user.empleado:
+                    empleado_id = current_user.empleado.id
+                    print(f"[DEBUG] Es UsuarioSistema con empleado_id: {empleado_id}")
+                else:
+                    print(f"[ERROR] UsuarioSistema {current_user.email} no tiene empleado vinculado")
+                    return jsonify({'error': 'Usuario no vinculado a un empleado'}), 500
+            else:
+                # Si es Empleado directamente
+                empleado_id = current_user.id
+                print(f"[DEBUG] Es Empleado con ID: {empleado_id}")
             
             # Verificar que el empleado existe en la BD
-            empleado_check = Empleado.query.get(current_user.id)
+            empleado_check = Empleado.query.get(empleado_id)
             if not empleado_check:
-                print(f"[ERROR] Empleado con ID {current_user.id} NO existe en la BD")
-                return jsonify({'error': f'Error: Empleado con ID {current_user.id} no existe'}), 500
+                print(f"[ERROR] Empleado con ID {empleado_id} NO existe en la BD")
+                return jsonify({'error': f'Error: Empleado con ID {empleado_id} no existe'}), 500
             
-            turno.empleado_id = current_user.id
-            print(f"[DEBUG] Turno atendido por empleado ID: {current_user.id} ({current_user.nombre})")
+            turno.empleado_id = empleado_id
+            print(f"[DEBUG] Turno atendido por empleado ID: {empleado_id} ({empleado_check.nombre})")
         
         # Agregar observaciones si existen
         if observaciones:
