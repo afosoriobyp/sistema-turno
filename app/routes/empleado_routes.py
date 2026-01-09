@@ -47,7 +47,18 @@ def login():
         if usuario_sistema and usuario_sistema.check_password(password) and usuario_sistema.activo:
             if usuario_sistema.empleado and usuario_sistema.empleado.activo:
                 # Login con el objeto Empleado
-                login_user(usuario_sistema.empleado)
+                empleado = usuario_sistema.empleado
+                print(f"[DEBUG LOGIN] UsuarioSistema ID: {usuario_sistema.id}")
+                print(f"[DEBUG LOGIN] Empleado ID: {empleado.id}")
+                print(f"[DEBUG LOGIN] Empleado get_id(): {empleado.get_id()}")
+                print(f"[DEBUG LOGIN] Empleado type: {type(empleado)}")
+                
+                login_user(empleado)
+                
+                print(f"[DEBUG LOGIN] Después de login_user")
+                print(f"[DEBUG LOGIN] current_user.id: {current_user.id}")
+                print(f"[DEBUG LOGIN] current_user.get_id(): {current_user.get_id()}")
+                print(f"[DEBUG LOGIN] current_user type: {type(current_user)}")
                 
                 if request.is_json:
                     return jsonify({
