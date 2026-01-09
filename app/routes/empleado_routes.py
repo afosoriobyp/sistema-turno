@@ -22,35 +22,44 @@ empleado_bp = Blueprint('empleado', __name__)
 def login():
     """
     Página de inicio de sesión para empleados.
+    Los empleados usan su email (del UsuarioSistema) para hacer login.
     GET: Muestra el formulario de login
     POST: Procesa las credenciales y autentica al empleado
     """
     if request.method == 'POST':
         data = request.get_json() if request.is_json else request.form
         
-        usuario = data.get('usuario', '').strip()
+        email = data.get('usuario', '').strip()  # El campo se llama 'usuario' en el form pero es el email
         password = data.get('password', '')
         
         # Validar campos
-        if not usuario or not password:
+        if not email or not password:
             if request.is_json:
-                return jsonify({'error': 'Usuario y contraseña son requeridos'}), 400
-            flash('Usuario y contraseña son requeridos', 'error')
+                return jsonify({'error': 'Email y contraseña son requeridos'}), 400
+            flash('Email y contraseña son requeridos', 'error')
             return redirect(url_for('empleado.login'))
         
-        # Buscar empleado
-        empleado = Empleado.query.filter_by(usuario=usuario).first()
+        # Buscar usuario del sistema por email (no superadmin, vinculado a empleado)
+        from app.models import UsuarioSistema
+        usuario_sistema = UsuarioSistema.query.filter_by(email=email).first()
         
-        # Verificar credenciales
-        if empleado and empleado.check_password(password) and empleado.activo:
-            login_user(empleado)
-            
-            if request.is_json:
-                return jsonify({
-                    'success': True,
-                    'redirect': url_for('empleado.dashboard')
-                })
-            return redirect(url_for('empleado.dashboard'))
+        # Verificar credenciales y que tenga empleado vinculado
+        if usuario_sistema and usuario_sistema.check_password(password) and usuario_sistema.activo:
+            if usuario_sistema.empleado and usuario_sistema.empleado.activo:
+                # Login con el objeto Empleado
+                login_user(usuario_sistema.empleado)
+                
+                if request.is_json:
+                    return jsonify({
+                        'success': True,
+                        'redirect': url_for('empleado.dashboard')
+                    })
+                return redirect(url_for('empleado.dashboard'))
+            else:
+                if request.is_json:
+                    return jsonify({'error': 'Usuario no vinculado a un empleado activo'}), 401
+                flash('Usuario no vinculado a un empleado activo', 'error')
+                return redirect(url_for('empleado.login'))
         else:
             if request.is_json:
                 return jsonify({'error': 'Credenciales inválidas o cuenta inactiva'}), 401
