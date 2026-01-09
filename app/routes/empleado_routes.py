@@ -118,13 +118,15 @@ def dashboard():
         Turno.estado.in_(['pendiente', 'en_atencion'])
     )
     
-    # Si el empleado tiene trámites asignados, filtrar por ellos
-    if current_user.tramites_asignados:
+    # Solo filtrar por trámites si tiene asignados y la lista no está vacía
+    if current_user.tramites_asignados and len(current_user.tramites_asignados) > 0:
         tramites_ids = [t.id for t in current_user.tramites_asignados]
         turnos_pendientes = query_base.filter(Turno.tipo_tramite_id.in_(tramites_ids)).all()
+        print(f"[DEBUG] Filtrando turnos por trámites: {tramites_ids}")
     else:
         # Si no tiene trámites asignados, mostrar todos los turnos
         turnos_pendientes = query_base.all()
+        print(f"[DEBUG] Sin trámites asignados, mostrando todos los turnos")
     
     # Ordenar turnos por prioridad de categoría
     turnos_pendientes.sort(key=lambda t: orden_categoria.get(t.categoria_atencion, 5))
@@ -145,13 +147,19 @@ def dashboard():
     # Obtener estadísticas del día (también filtradas por trámites asignados)
     stats_query_base = Turno.query.filter(func.date(Turno.fecha_solicitud) == hoy)
     
-    if current_user.tramites_asignados:
+    # Solo filtrar por trámites si tiene asignados
+    if current_user.tramites_asignados and len(current_user.tramites_asignados) > 0:
         tramites_ids = [t.id for t in current_user.tramites_asignados]
         stats_query_base = stats_query_base.filter(Turno.tipo_tramite_id.in_(tramites_ids))
+        print(f"[DEBUG] Filtrando estadísticas por trámites: {tramites_ids}")
+    else:
+        print(f"[DEBUG] Sin trámites asignados, mostrando todas las estadísticas")
     
     total_hoy = stats_query_base.count()
     atendidos_hoy = stats_query_base.filter(Turno.estado == 'atendido').count()
     pendientes_hoy = stats_query_base.filter(Turno.estado == 'pendiente').count()
+    
+    print(f"[DEBUG] Estadísticas - Total: {total_hoy}, Atendidos: {atendidos_hoy}, Pendientes: {pendientes_hoy}")
     
     # Calcular tiempo promedio de atención
     turnos_atendidos = stats_query_base.filter(
