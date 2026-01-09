@@ -65,17 +65,28 @@ def create_app(config_name=None):
     def load_user(user_id):
         """
         Carga el usuario desde la base de datos para Flask-Login.
-        Intenta cargar primero como Empleado, luego como UsuarioSistema.
+        Usa prefijos para distinguir entre UsuarioSistema (usr_) y Empleado (emp_).
         """
         from app.models import Empleado
         
-        # Intentar cargar como Empleado
-        empleado = Empleado.query.get(int(user_id))
-        if empleado:
-            return empleado
+        if not user_id:
+            return None
         
-        # Si no es empleado, intentar como UsuarioSistema (admin)
-        return UsuarioSistema.query.get(int(user_id))
+        # Parsear el prefijo para determinar el tipo de usuario
+        if user_id.startswith('usr_'):
+            # Es un UsuarioSistema (admin)
+            actual_id = int(user_id.replace('usr_', ''))
+            return UsuarioSistema.query.get(actual_id)
+        elif user_id.startswith('emp_'):
+            # Es un Empleado
+            actual_id = int(user_id.replace('emp_', ''))
+            return Empleado.query.get(actual_id)
+        else:
+            # Fallback para compatibilidad (intentar como Empleado)
+            try:
+                return Empleado.query.get(int(user_id))
+            except:
+                return None
     
     # Registrar blueprints (rutas)
     from app.routes.usuario_routes import usuario_bp
