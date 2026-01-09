@@ -49,22 +49,33 @@ def crear_admin_sistema():
     ⚠️ ELIMINAR DESPUÉS DE CREAR EL ADMIN
     """
     try:
-        # Verificar si ya existe un superadmin
-        admin_existente = UsuarioSistema.query.filter_by(es_superadmin=True).first()
-        
-        if admin_existente:
-            return f"""
-            <h2>⚠️ Ya existe un administrador del sistema</h2>
-            <p><strong>Email:</strong> {admin_existente.email}</p>
-            <p><strong>Nombre:</strong> {admin_existente.nombre}</p>
-            <p><a href="/admin/login">Ir al login de administradores</a></p>
-            """, 200
-        
-        # Crear nuevo UsuarioSistema superadmin
+        # Verificar si ya existe un usuario con ese email
         import os
         admin_email = os.environ.get('ADMIN_EMAIL', 'admin@sistema-turno.com')
         admin_password = os.environ.get('ADMIN_PASSWORD', 'Admin2026*')
         
+        usuario_existente = UsuarioSistema.query.filter_by(email=admin_email).first()
+        
+        if usuario_existente:
+            # Actualizar el usuario existente para que sea superadmin
+            usuario_existente.es_superadmin = True
+            usuario_existente.activo = True
+            usuario_existente.set_password(admin_password)
+            db.session.commit()
+            
+            return f"""
+            <h2>✅ Usuario Actualizado a Superadmin</h2>
+            <p><strong>Email:</strong> {admin_email}</p>
+            <p><strong>Contraseña:</strong> {admin_password}</p>
+            <p><strong>Tipo:</strong> Superadmin (actualizado)</p>
+            <p><strong>Estado:</strong> Activo</p>
+            <hr>
+            <p><a href="/admin/login" style="background: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Ir al Login de Administradores</a></p>
+            <hr>
+            <p style="color: green;">✅ El usuario existente fue actualizado con permisos de superadmin.</p>
+            """, 200
+        
+        # Crear nuevo UsuarioSistema superadmin
         nuevo_admin = UsuarioSistema(
             email=admin_email,
             nombre='Administrador del Sistema',
@@ -88,6 +99,14 @@ def crear_admin_sistema():
         <p style="color: orange;">🗑️ Eliminar esta ruta después de crear el admin (seguridad).</p>
         """, 200
         
+    except Exception as e:
+        db.session.rollback()
+        return f"""
+        <h2>❌ Error al crear/actualizar administrador</h2>
+        <p>{str(e)}</p>
+        <p><a href="/">Volver al inicio</a></p>
+        """, 500
+
     except Exception as e:
         db.session.rollback()
         return f"""
