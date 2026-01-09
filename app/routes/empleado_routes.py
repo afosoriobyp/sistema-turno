@@ -225,12 +225,9 @@ def cambiar_estado_turno(turno_id):
         # Si se marca como atendido, registrar fecha y empleado
         if nuevo_estado == 'atendido':
             turno.fecha_atencion = datetime.utcnow()
-            # Asignar el empleado_id correcto (del empleado, no del UsuarioSistema)
-            if current_user.empleado:
-                turno.empleado_id = current_user.empleado.id
-                print(f"[DEBUG] Turno atendido por empleado ID: {current_user.empleado.id} ({current_user.empleado.nombre})")
-            else:
-                print(f"[WARNING] Usuario {current_user.nombre} no tiene empleado asociado")
+            # Asignar el empleado_id (current_user ya es un Empleado)
+            turno.empleado_id = current_user.id
+            print(f"[DEBUG] Turno atendido por empleado ID: {current_user.id} ({current_user.nombre})")
         
         # Agregar observaciones si existen
         if observaciones:
