@@ -1,0 +1,926 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Sistema de Turnos{% endblock %}
+
+{% block content %}
+{% include 'components/sidebar.html' %}
+
+<div class="main-content-with-sidebar">
+    <div class="content-header">
+        <h1>
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </h1>
+        <p class="subtitle">Bienvenido, {{ current_user.nombre }}</p>
+    </div>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert-card alert-{{ category }}" id="alertCard">
+                        <div class="alert-icon">
+                            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                        </div>
+                        <div class="alert-content">
+                            <strong>{{ 'Éxito' if category == 'success' else 'Error' }}</strong>
+                            <p>{{ message }}</p>
+                        </div>
+                        <button class="alert-close" onclick="cerrarAlerta()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Tarjetas de Estadísticas -->
+        <div class="stats-grid">
+            <!-- Turnos Pendientes -->
+            <div class="stat-card stat-warning">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>{{ turnos_pendientes }}</h3>
+                    <p>Turnos Pendientes</p>
+                </div>
+            </div>
+
+            <!-- Turnos Atendiendo -->
+            <div class="stat-card stat-info">
+                <div class="stat-icon">
+                    <i class="fas fa-user-clock"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>{{ turnos_atendiendo }}</h3>
+                    <p>En Atención</p>
+                </div>
+            </div>
+
+            <!-- Turnos Atendidos -->
+            <div class="stat-card stat-success">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>{{ turnos_atendidos }}</h3>
+                    <p>Atendidos Hoy</p>
+                </div>
+            </div>
+
+            <!-- Total Turnos -->
+            <div class="stat-card stat-primary">
+                <div class="stat-icon">
+                    <i class="fas fa-ticket-alt"></i>
+                </div>
+                <div class="stat-details">
+                    <h3>{{ turnos|length }}</h3>
+                    <p>Total Turnos</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Turnos -->
+        <div class="turnos-section">
+            <h2>
+                <i class="fas fa-list"></i> 
+                {% if current_user.es_superadmin %}
+                Todos los Turnos
+                {% else %}
+                Mis Turnos Asignados
+                {% endif %}
+            </h2>
+            
+            {% if turnos %}
+            <!-- Buscador -->
+            <div class="search-container" style="margin-bottom: 1rem;">
+                <div style="position: relative; max-width: 400px;">
+                    <input type="text" id="searchInput" 
+                           placeholder="Buscar por turno, usuario, cédula o trámite..." 
+                           style="width: 100%; padding: 0.5rem 2.5rem 0.5rem 1rem; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem;">
+                    <i class="fas fa-search" style="position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #666;"></i>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table-modern">
+                    <thead>
+                        <tr>
+                            <th>Turno</th>
+                            <th>Usuario</th>
+                            <th>Trámite</th>
+                            <th>Estado</th>
+                            <th>Hora</th>
+                            <th>Empleado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for turno in turnos %}
+                        <tr>
+                            <td><strong>{{ turno.numero_turno }}</strong></td>
+                            <td>
+                                {% if turno.usuario %}
+                                    {{ turno.usuario.nombre }}<br>
+                                    <small class="text-muted">{{ turno.usuario.cedula }}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if turno.tipo_tramite %}
+                                    <i class="fas fa-file-alt"></i> {{ turno.tipo_tramite.nombre }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if turno.estado == 'pendiente' %}
+                                    <span class="badge badge-warning">
+                                        <i class="fas fa-clock"></i> Pendiente
+                                    </span>
+                                {% elif turno.estado == 'en_atencion' %}
+                                    <span class="badge badge-info">
+                                        <i class="fas fa-user-clock"></i> Atendiendo
+                                    </span>
+                                {% elif turno.estado == 'atendido' %}
+                                    <span class="badge badge-success">
+                                        <i class="fas fa-check"></i> Atendido
+                                    </span>
+                                {% elif turno.estado == 'cancelado' %}
+                                    <span class="badge badge-secondary">
+                                        <i class="fas fa-times"></i> Cancelado
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ turno.estado }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>
+                                    {{ turno.fecha_solicitud.strftime('%d/%m/%Y') }}<br>
+                                    <span style="color: #666;">{{ turno.fecha_solicitud.strftime('%H:%M') }}</span>
+                                </small>
+                            </td>
+                            <td style="color: #333; font-weight: 500;">
+                                {% if turno.empleado_atencion %}
+                                    <span style="display: inline-block; min-width: 80px;">{{ turno.empleado_atencion.nombre }}</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    {% if turno.estado == 'pendiente' %}
+                                        <button class="btn btn-sm btn-primary" 
+                                                onclick="llamarTurno({{ turno.id }})"
+                                                title="Llamar Turno">
+                                            📢 Llamar
+                                        </button>
+                                        <button class="btn btn-sm btn-success" 
+                                                onclick="atenderTurno({{ turno.id }})"
+                                                title="Atender">
+                                            ✅ Atender
+                                        </button>
+                                    {% elif turno.estado == 'en_atencion' %}
+                                        <button class="btn btn-sm btn-success" 
+                                                onclick="finalizarTurno({{ turno.id }})"
+                                                title="Finalizar Atención">
+                                            ✔️ Finalizar
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Controles de Paginación -->
+            <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding: 1rem; border-top: 1px solid #eee;">
+                <div class="pagination-info">
+                    <span id="paginationInfo" style="color: #666; font-size: 0.9rem;"></span>
+                </div>
+                <div class="pagination-buttons" style="display: flex; gap: 0.5rem;">
+                    <button id="prevPage" class="btn btn-sm btn-secondary" style="padding: 0.5rem 1rem;">
+                        <i class="fas fa-chevron-left"></i> Anterior
+                    </button>
+                    <span id="pageNumbers" style="display: flex; gap: 0.25rem;"></span>
+                    <button id="nextPage" class="btn btn-sm btn-secondary" style="padding: 0.5rem 1rem;">
+                        Siguiente <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No hay turnos para mostrar</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        color: white;
+    }
+
+    .stat-warning .stat-icon { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .stat-info .stat-icon { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .stat-success .stat-icon { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .stat-primary .stat-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+
+    .stat-details h3 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0;
+        color: #333;
+    }
+
+    .stat-details p {
+        margin: 0;
+        color: #666;
+        font-size: 0.95rem;
+    }
+
+    .admin-modules {
+        margin: 3rem 0;
+    }
+
+    .admin-modules h2 {
+        margin-bottom: 1.5rem;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .modules-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .module-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .module-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .module-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .module-card:hover::before {
+        width: 100%;
+        opacity: 0.1;
+    }
+
+    .module-usuarios::before { background: #667eea; }
+    .module-empleados::before { background: #f093fb; }
+    .module-tramites::before { background: #43e97b; }
+
+    .module-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .module-usuarios .module-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .module-empleados .module-icon { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .module-tramites .module-icon { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+
+    .module-details {
+        flex: 1;
+    }
+
+    .module-details h3 {
+        margin: 0 0 0.5rem 0;
+        color: #333;
+        font-size: 1.2rem;
+    }
+
+    .module-count {
+        color: #667eea;
+        font-weight: 600;
+        margin: 0 0 0.25rem 0;
+        font-size: 0.9rem;
+    }
+
+    .module-desc {
+        color: #666;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .module-arrow {
+        color: #ccc;
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .module-card:hover .module-arrow {
+        color: #667eea;
+        transform: translateX(5px);
+    }
+
+    .turnos-section {
+        margin-top: 3rem;
+    }
+
+    .turnos-section h2 {
+        margin-bottom: 1.5rem;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .badge-warning {
+        background-color: #fff4e6;
+        color: #d97706;
+    }
+
+    .badge-info {
+        background-color: #e0f2fe;
+        color: #0284c7;
+    }
+
+    .badge-success {
+        background-color: #d1fae5;
+        color: #059669;
+    }
+
+    .badge-secondary {
+        background-color: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .text-muted {
+        color: #9ca3af;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-sm {
+        padding: 0.35rem 0.7rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .btn-success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .btn-icon:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .modules-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Estilos para búsqueda y paginación */
+    .search-container input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .pagination-controls button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .pagination-controls button:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .pagination-info {
+        font-weight: 500;
+    }
+    
+    @media (max-width: 768px) {
+        .pagination-controls {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .search-container {
+            max-width: 100% !important;
+        }
+    }
+
+    /* Modal de confirmación personalizado */
+    .modal-confirmacion {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal-confirmacion.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-confirmacion-contenido {
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        animation: slideUp 0.3s ease;
+        text-align: center;
+    }
+
+    .modal-confirmacion-icono {
+        width: 70px;
+        height: 70px;
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .modal-confirmacion-titulo {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .modal-confirmacion-mensaje {
+        color: #666;
+        margin-bottom: 2rem;
+        line-height: 1.5;
+    }
+
+    .modal-confirmacion-botones {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .modal-confirmacion-botones button {
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+
+    .btn-confirmar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-confirmar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-cancelar {
+        background: #e0e0e0;
+        color: #333;
+    }
+
+    .btn-cancelar:hover {
+        background: #d0d0d0;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+</style>
+
+<!-- Modal de confirmación personalizado -->
+<div id="modalConfirmacion" class="modal-confirmacion">
+    <div class="modal-confirmacion-contenido">
+        <div class="modal-confirmacion-icono" id="modalIcono">❓</div>
+        <h3 class="modal-confirmacion-titulo" id="modalTitulo">Confirmar acción</h3>
+        <p class="modal-confirmacion-mensaje" id="modalMensaje"></p>
+        <div class="modal-confirmacion-botones">
+            <button class="btn-cancelar" onclick="cerrarModalConfirmacion()">Cancelar</button>
+            <button class="btn-confirmar" id="btnConfirmarAccion">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let accionConfirmada = null;
+
+function mostrarModalConfirmacion(titulo, mensaje, icono, callback) {
+    document.getElementById('modalTitulo').textContent = titulo;
+    document.getElementById('modalMensaje').textContent = mensaje;
+    document.getElementById('modalIcono').textContent = icono;
+    
+    const modal = document.getElementById('modalConfirmacion');
+    modal.classList.add('active');
+    
+    document.getElementById('btnConfirmarAccion').onclick = function() {
+        cerrarModalConfirmacion();
+        if (callback) callback();
+    };
+}
+
+function cerrarModalConfirmacion() {
+    document.getElementById('modalConfirmacion').classList.remove('active');
+}
+
+function mostrarNotificacionToast(mensaje, tipo = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `notificacion-toast notificacion-${tipo}`;
+    toast.textContent = mensaje;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 100);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function llamarTurno(turnoId) {
+    mostrarModalConfirmacion(
+        '📢 Llamar Turno',
+        '¿Desea llamar a este turno? El usuario recibirá una notificación.',
+        '📢',
+        function() {
+            fetch(`/admin/turnos/${turnoId}/llamar`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarNotificacionToast('✅ Turno llamado exitosamente', 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    mostrarNotificacionToast('❌ Error: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                mostrarNotificacionToast('❌ Error al llamar turno', 'error');
+                console.error('Error:', error);
+            });
+        }
+    );
+}
+
+function atenderTurno(turnoId) {
+    mostrarModalConfirmacion(
+        '▶️ Atender Turno',
+        '¿Desea comenzar a atender este turno?',
+        '▶️',
+        function() {
+            fetch(`/admin/turnos/${turnoId}/atender`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarNotificacionToast('✅ Turno en atención', 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    mostrarNotificacionToast('❌ Error: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                mostrarNotificacionToast('❌ Error al atender turno', 'error');
+                console.error('Error:', error);
+            });
+        }
+    );
+}
+
+function finalizarTurno(turnoId) {
+    mostrarModalConfirmacion(
+        '✅ Finalizar Turno',
+        '¿Desea finalizar la atención de este turno?',
+        '✅',
+        function() {
+            fetch(`/admin/turnos/${turnoId}/finalizar`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarNotificacionToast('✅ Turno finalizado exitosamente', 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    mostrarNotificacionToast('❌ Error: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                mostrarNotificacionToast('❌ Error al finalizar turno', 'error');
+                console.error('Error:', error);
+            });
+        }
+    );
+}
+
+// Función para cerrar la alerta
+function cerrarAlerta() {
+    const alertCard = document.getElementById('alertCard');
+    if (alertCard) {
+        alertCard.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            alertCard.remove();
+        }, 300);
+    }
+}
+
+// Auto-cerrar después de 3 segundos
+document.addEventListener('DOMContentLoaded', function() {
+    const alertCard = document.getElementById('alertCard');
+    if (alertCard) {
+        setTimeout(() => {
+            cerrarAlerta();
+        }, 3000);
+    }
+    
+    // Inicializar paginación y búsqueda
+    initializePaginationAndSearch();
+});
+
+// ========== SISTEMA DE PAGINACIÓN Y BÚSQUEDA ==========
+let currentPage = 1;
+let rowsPerPage = 10;
+let allRows = [];
+let filteredRows = [];
+
+function initializePaginationAndSearch() {
+    const table = document.querySelector('.table-modern tbody');
+    if (!table) {
+        return;
+    }
+    
+    // Guardar todas las filas
+    allRows = Array.from(table.querySelectorAll('tr'));
+    
+    if (allRows.length === 0) {
+        return;
+    }
+    
+    filteredRows = [...allRows];
+    
+    // Configurar búsqueda
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            currentPage = 1;
+            filterTable(this.value.toLowerCase());
+        });
+    }
+    
+    // Configurar botones de paginación
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                displayPage();
+            }
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayPage();
+            }
+        });
+    }
+    
+    // Mostrar primera página
+    displayPage();
+}
+
+function filterTable(searchTerm) {
+    if (!searchTerm) {
+        filteredRows = [...allRows];
+    } else {
+        filteredRows = allRows.filter(row => {
+            const text = row.textContent.toLowerCase();
+            return text.includes(searchTerm);
+        });
+    }
+    displayPage();
+}
+
+function displayPage() {
+    // Ocultar todas las filas
+    allRows.forEach(row => {
+        row.style.display = 'none';
+    });
+    
+    // Calcular índices
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    
+    // Mostrar filas de la página actual
+    const rowsToShow = filteredRows.slice(startIndex, endIndex);
+    
+    rowsToShow.forEach((row) => {
+        row.style.display = '';
+    });
+    
+    // Actualizar controles
+    updatePaginationControls();
+}
+
+function updatePaginationControls() {
+    const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+    const startRecord = filteredRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+    const endRecord = Math.min(currentPage * rowsPerPage, filteredRows.length);
+    
+    // Actualizar información
+    document.getElementById('paginationInfo').textContent = 
+        `Mostrando ${startRecord} a ${endRecord} de ${filteredRows.length} registros`;
+    
+    // Actualizar botones
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+    
+    // Generar números de página
+    const pageNumbers = document.getElementById('pageNumbers');
+    pageNumbers.innerHTML = '';
+    
+    // Mostrar máximo 5 números de página
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+    
+    if (endPage - startPage < 4) {
+        startPage = Math.max(1, endPage - 4);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.textContent = i;
+        pageBtn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-secondary');
+        pageBtn.style.padding = '0.5rem 0.75rem';
+        pageBtn.style.minWidth = '2.5rem';
+        pageBtn.onclick = () => {
+            currentPage = i;
+            displayPage();
+        };
+        pageNumbers.appendChild(pageBtn);
+    }
+}
+</script>
+{% endblock %}

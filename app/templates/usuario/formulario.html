@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitud de Turno{% endblock %}
+
+{% block content %}
+<div class="formulario-container">
+    <div class="header">
+        <h1>📋 Solicitud de Turno</h1>
+        <p>Complete la información para obtener su turno</p>
+    </div>
+    
+    <!-- Paso 1: Seleccionar tipo de trámite y consultar cédula -->
+    <div id="paso1" class="paso-formulario">
+        <div class="form-card">
+            <h2>Paso 1: Información del Trámite</h2>
+            
+            <div class="form-group">
+                <label for="tipoTramite">Tipo de Trámite *</label>
+                <select id="tipoTramite" class="form-control" required>
+                    <option value="">Seleccione un trámite...</option>
+                    {% for tramite in tipos_tramite %}
+                    <option value="{{ tramite.id }}" data-tiempo="{{ tramite.tiempo_estimado }}">
+                        {{ tramite.nombre }} ({{ tramite.tiempo_estimado }} min)
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="cedula">Número de Cédula *</label>
+                <input type="text" id="cedula" class="form-control" 
+                       placeholder="Ingrese su número de cédula" required>
+            </div>
+            
+            <button onclick="consultarCedula()" class="btn btn-primary">
+                Continuar
+            </button>
+        </div>
+    </div>
+    
+    <!-- Paso 2: Confirmación o registro de datos -->
+    <div id="paso2" class="paso-formulario" style="display: none;">
+        <div class="form-card">
+            <h2 id="tituloPaso2">Paso 2: Confirmación de Datos</h2>
+            
+            <!-- Sección para usuario existente -->
+            <div id="seccionConfirmacion" style="display: none;">
+                <div class="user-info-card">
+                    <h3>Sus Datos Registrados:</h3>
+                    <div class="info-row">
+                        <span class="label">Cédula:</span>
+                        <span id="confirmarCedula" class="value"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Nombre:</span>
+                        <span id="confirmarNombre" class="value"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Teléfono:</span>
+                        <span id="confirmarTelefono" class="value"></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Email:</span>
+                        <span id="confirmarEmail" class="value"></span>
+                    </div>
+                </div>
+                
+                <p class="confirm-text">¿Los datos son correctos?</p>
+                
+                <div class="button-group">
+                    <button onclick="continuarPaso3()" class="btn btn-success">
+                        Sí, continuar
+                    </button>
+                    <button onclick="volverPaso1()" class="btn btn-secondary">
+                        No, regresar
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Sección para nuevo registro -->
+            <div id="seccionRegistro" style="display: none;">
+                <p class="info-message">No encontramos un registro con esta cédula. 
+                   Por favor, complete su información:</p>
+                
+                <div class="form-group">
+                    <label for="registroNombre">Nombre Completo *</label>
+                    <input type="text" id="registroNombre" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="registroTelefono">Teléfono</label>
+                    <input type="tel" id="registroTelefono" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label for="registroEmail">Correo Electrónico</label>
+                    <input type="email" id="registroEmail" class="form-control">
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="registrarUsuario()" class="btn btn-primary">
+                        Registrarse y Continuar
+                    </button>
+                    <button onclick="volverPaso1()" class="btn btn-secondary">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Paso 3: Seleccionar categoría de atención -->
+    <div id="paso3" class="paso-formulario" style="display: none;">
+        <div class="form-card">
+            <h2>Paso 3: Categoría de Atención</h2>
+            
+            <p class="info-text">Seleccione la categoría que corresponda a su situación 
+               para brindarle una atención prioritaria si aplica:</p>
+            
+            <div class="categoria-grid">
+                <div class="categoria-card" onclick="seleccionarCategoria('adulto_mayor')">
+                    <div class="categoria-icon">👴</div>
+                    <h3>Adulto Mayor</h3>
+                    <p>Personas de 65 años o más</p>
+                </div>
+                
+                <div class="categoria-card" onclick="seleccionarCategoria('discapacidad')">
+                    <div class="categoria-icon">♿</div>
+                    <h3>Discapacidad</h3>
+                    <p>Personas con discapacidad</p>
+                </div>
+                
+                <div class="categoria-card" onclick="seleccionarCategoria('embarazada')">
+                    <div class="categoria-icon">🤰</div>
+                    <h3>Mujer Embarazada</h3>
+                    <p>Mujeres en estado de embarazo</p>
+                </div>
+                
+                <div class="categoria-card" onclick="seleccionarCategoria('ninguna')">
+                    <div class="categoria-icon">👤</div>
+                    <h3>Atención Regular</h3>
+                    <p>No aplica ninguna categoría</p>
+                </div>
+            </div>
+            
+            <button onclick="volverPaso2()" class="btn btn-secondary">
+                Regresar
+            </button>
+        </div>
+    </div>
+    
+    <!-- Indicador de carga -->
+    <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Procesando...</p>
+    </div>
+</div>
+
+<script>
+    // Variables globales para almacenar información del formulario
+    let datosUsuario = {};
+    let tipoTramiteSeleccionado = null;
+    let categoriaSeleccionada = null;
+    
+    /**
+     * Consulta si existe un usuario con la cédula ingresada
+     */
+    async function consultarCedula() {
+        const cedula = document.getElementById('cedula').value.trim();
+        const tipoTramite = document.getElementById('tipoTramite').value;
+        
+        // Validar campos
+        if (!cedula) {
+            alert('Por favor ingrese su número de cédula');
+            return;
+        }
+        
+        if (!tipoTramite) {
+            alert('Por favor seleccione un tipo de trámite');
+            return;
+        }
+        
+        tipoTramiteSeleccionado = tipoTramite;
+        mostrarLoading(true);
+        
+        try {
+            const response = await fetch('{{ url_for("usuario.consultar_cedula") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ cedula: cedula })
+            });
+            
+            const data = await response.json();
+            mostrarLoading(false);
+            
+            if (data.existe) {
+                // Usuario existe, mostrar datos para confirmación
+                datosUsuario = data.usuario;
+                mostrarConfirmacion();
+            } else {
+                // Usuario no existe, mostrar formulario de registro
+                datosUsuario.cedula = cedula;
+                mostrarRegistro();
+            }
+        } catch (error) {
+            mostrarLoading(false);
+            alert('Error al consultar la cédula. Por favor intente nuevamente.');
+            console.error(error);
+        }
+    }
+    
+    /**
+     * Muestra la sección de confirmación de datos existentes
+     */
+    function mostrarConfirmacion() {
+        document.getElementById('confirmarCedula').textContent = datosUsuario.cedula;
+        document.getElementById('confirmarNombre').textContent = datosUsuario.nombre;
+        document.getElementById('confirmarTelefono').textContent = datosUsuario.telefono || 'No registrado';
+        document.getElementById('confirmarEmail').textContent = datosUsuario.email || 'No registrado';
+        
+        document.getElementById('paso1').style.display = 'none';
+        document.getElementById('paso2').style.display = 'block';
+        document.getElementById('seccionConfirmacion').style.display = 'block';
+        document.getElementById('seccionRegistro').style.display = 'none';
+    }
+    
+    /**
+     * Muestra el formulario de registro para nuevos usuarios
+     */
+    function mostrarRegistro() {
+        document.getElementById('tituloPaso2').textContent = 'Paso 2: Registro de Usuario';
+        document.getElementById('paso1').style.display = 'none';
+        document.getElementById('paso2').style.display = 'block';
+        document.getElementById('seccionConfirmacion').style.display = 'none';
+        document.getElementById('seccionRegistro').style.display = 'block';
+    }
+    
+    /**
+     * Registra un nuevo usuario en el sistema
+     */
+    async function registrarUsuario() {
+        const nombre = document.getElementById('registroNombre').value.trim();
+        const telefono = document.getElementById('registroTelefono').value.trim();
+        const email = document.getElementById('registroEmail').value.trim();
+        
+        if (!nombre) {
+            alert('Por favor ingrese su nombre completo');
+            return;
+        }
+        
+        mostrarLoading(true);
+        
+        try {
+            const response = await fetch('{{ url_for("usuario.registrar_usuario") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    cedula: datosUsuario.cedula,
+                    nombre: nombre,
+                    telefono: telefono,
+                    email: email
+                })
+            });
+            
+            const data = await response.json();
+            mostrarLoading(false);
+            
+            if (data.success) {
+                datosUsuario = data.usuario;
+                continuarPaso3();
+            } else {
+                alert(data.error || 'Error al registrar usuario');
+            }
+        } catch (error) {
+            mostrarLoading(false);
+            alert('Error al registrar usuario. Por favor intente nuevamente.');
+            console.error(error);
+        }
+    }
+    
+    /**
+     * Continúa al paso 3 (selección de categoría)
+     */
+    function continuarPaso3() {
+        document.getElementById('paso2').style.display = 'none';
+        document.getElementById('paso3').style.display = 'block';
+    }
+    
+    /**
+     * Selecciona una categoría y asigna el turno
+     */
+    async function seleccionarCategoria(categoria) {
+        categoriaSeleccionada = categoria;
+        mostrarLoading(true);
+        
+        try {
+            const response = await fetch('{{ url_for("usuario.asignar_turno") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    cedula: datosUsuario.cedula,
+                    tipo_tramite_id: tipoTramiteSeleccionado,
+                    categoria: categoria
+                })
+            });
+            
+            const data = await response.json();
+            mostrarLoading(false);
+            
+            if (data.success) {
+                // Redirigir al historial con el turno asignado
+                window.location.href = data.redirect;
+            } else {
+                alert(data.error || 'Error al asignar turno');
+            }
+        } catch (error) {
+            mostrarLoading(false);
+            alert('Error al asignar turno. Por favor intente nuevamente.');
+            console.error(error);
+        }
+    }
+    
+    /**
+     * Regresa al paso 1
+     */
+    function volverPaso1() {
+        document.getElementById('paso2').style.display = 'none';
+        document.getElementById('paso1').style.display = 'block';
+    }
+    
+    /**
+     * Regresa al paso 2
+     */
+    function volverPaso2() {
+        document.getElementById('paso3').style.display = 'none';
+        document.getElementById('paso2').style.display = 'block';
+    }
+    
+    /**
+     * Muestra u oculta el indicador de carga
+     */
+    function mostrarLoading(mostrar) {
+        document.getElementById('loading').style.display = mostrar ? 'flex' : 'none';
+    }
+</script>
+{% endblock %}

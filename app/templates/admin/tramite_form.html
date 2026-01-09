@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Editar' if tramite else 'Nuevo' }} Trámite</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    {% include 'components/sidebar.html' %}
+    
+    <div class="main-content-with-sidebar">
+        <div class="container" style="max-width: 800px; padding: 2rem;">
+            <h1><i class="fas fa-file-alt"></i> {{ 'Editar' if tramite else 'Nuevo' }} Trámite</h1>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card">
+                <form method="POST">
+                    <div class="form-group">
+                        <label>Nombre del Trámite <span class="required">*</span></label>
+                        <input type="text" name="nombre" class="form-control" value="{{ tramite.nombre if tramite else '' }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <textarea name="descripcion" class="form-control" rows="3">{{ tramite.descripcion if tramite else '' }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tiempo Estimado (minutos)</label>
+                        <input type="number" name="tiempo_estimado" class="form-control" value="{{ tramite.tiempo_estimado if tramite else 15 }}" min="1" max="120">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="activo" {{ 'checked' if not tramite or tramite.activo else '' }}>
+                            <span>Trámite Activo</span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem;">
+                        <a href="{{ url_for('admin.tramites_lista') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> {{ 'Actualizar' if tramite else 'Crear' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

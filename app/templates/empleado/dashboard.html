@@ -1,0 +1,616 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Empleados{% endblock %}
+
+{% block content %}
+<!-- Incluir Sidebar -->
+{% include 'components/sidebar.html' %}
+
+<div class="main-content-with-sidebar">
+<div class="dashboard-container">
+    <!-- Navbar superior -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <h1>📊 Dashboard de Turnos</h1>
+        </div>
+        <div class="navbar-menu">
+            <span class="user-info">👨‍💼 {{ current_user.nombre }}</span>
+            <span class="user-info" style="font-size: 0.85rem; color: var(--text-secondary);">
+                Trámites asignados: {{ current_user.tramites_asignados|length }}
+            </span>
+            <!-- <a href="{{ url_for('empleado.estadisticas') }}" class="btn btn-outline">
+                📈 Estadísticas
+            </a>
+            <a href="{{ url_for('empleado.logout') }}" class="btn btn-outline">
+                🚪 Cerrar Sesión
+            </a> -->
+        </div>
+    </nav>
+    
+    <!-- Estadísticas rápidas -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-info">
+                <h3>{{ total_hoy }}</h3>
+                <p>Total Hoy</p>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-success">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <h3>{{ atendidos_hoy }}</h3>
+                <p>Atendidos</p>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-warning">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-info">
+                <h3>{{ pendientes_hoy }}</h3>
+                <p>Pendientes</p>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-info">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-info">
+                <h3 id="tiempoPromedio">{{ tiempo_promedio if tiempo_promedio > 0 else '--' }}</h3>
+                <p>Tiempo Promedio (min)</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Turnos por categoría -->
+    <div class="turnos-section">
+        <h2>Turnos por Categoría de Atención</h2>
+        
+        <div class="categorias-tabs">
+            <button class="tab-button active" onclick="cambiarTab('adulto_mayor')">
+                👴 Adulto Mayor ({{ turnos_por_categoria['adulto_mayor']|length }})
+            </button>
+            <button class="tab-button" onclick="cambiarTab('discapacidad')">
+                ♿ Discapacidad ({{ turnos_por_categoria['discapacidad']|length }})
+            </button>
+            <button class="tab-button" onclick="cambiarTab('embarazada')">
+                🤰 Embarazada ({{ turnos_por_categoria['embarazada']|length }})
+            </button>
+            <button class="tab-button" onclick="cambiarTab('ninguna')">
+                👤 Regular ({{ turnos_por_categoria['ninguna']|length }})
+            </button>
+        </div>
+        
+        <!-- Contenido de cada categoría -->
+        {% for categoria, turnos in turnos_por_categoria.items() %}
+        <div id="tab-{{ categoria }}" class="tab-content {% if categoria == 'adulto_mayor' %}active{% endif %}">
+            {% if turnos %}
+            <div class="turnos-grid">
+                {% for turno in turnos %}
+                <div class="turno-card turno-estado-{{ turno.estado }}" data-turno-id="{{ turno.id }}">
+                    <div class="turno-card-header">
+                        <span class="turno-numero-grande">Turno {{ turno.numero_turno }}</span>
+                        <span class="estado-badge estado-{{ turno.estado }}">
+                            {{ turno.estado|upper }}
+                        </span>
+                    </div>
+                    
+                    <div class="turno-card-body">
+                        <div class="info-item">
+                            <strong>Usuario:</strong> {{ turno.usuario.nombre }}
+                        </div>
+                        <div class="info-item">
+                            <strong>Cédula:</strong> {{ turno.usuario.cedula }}
+                        </div>
+                        <div class="info-item">
+                            <strong>Trámite:</strong> {{ turno.tipo_tramite.nombre }}
+                        </div>
+                        <div class="info-item">
+                            <strong>Hora:</strong> {{ turno.fecha_solicitud.strftime('%H:%M:%S') }}
+                        </div>
+                    </div>
+                    
+                    <div class="turno-card-actions">
+                        {% if turno.estado == 'pendiente' %}
+                        <button onclick="llamarTurno({{ turno.id }})" 
+                                class="btn btn-primary btn-small"
+                                id="btn-llamar-{{ turno.id }}"
+                                {% if turno.llamados_realizados >= 3 %}disabled{% endif %}>
+                            📢 Llamar {% if turno.llamados_realizados > 0 %}({{ turno.llamados_realizados }}/3){% endif %}
+                        </button>
+                        <button onclick="mostrarModalEstado({{ turno.id }}, 'en_atencion')" 
+                                class="btn btn-success btn-small">
+                            ▶️ Atender
+                        </button>
+                        {% elif turno.estado == 'en_atencion' %}
+                        <button onclick="mostrarModalEstado({{ turno.id }}, 'atendido')" 
+                                class="btn btn-success btn-small">
+                            ✅ Finalizar
+                        </button>
+                        <button onclick="mostrarModalEstado({{ turno.id }}, 'cancelado')" 
+                                class="btn btn-danger btn-small">
+                            ❌ Cancelar
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-data">
+                <p>No hay turnos pendientes en esta categoría</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal para cambiar estado -->
+<div id="modalEstado" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitulo">Cambiar Estado</h3>
+            <button onclick="cerrarModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <p id="modalMensaje"></p>
+            
+            <div class="form-group">
+                <label for="observaciones">Observaciones (opcional):</label>
+                <textarea id="observaciones" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="cerrarModal()" class="btn btn-secondary">Cancelar</button>
+            <button onclick="confirmarCambioEstado()" class="btn btn-primary" id="btnConfirmar">
+                Confirmar
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+try {
+    console.log('=== DASHBOARD EMPLEADO INICIADO ===');
+    console.log('Usuario:', '{{ current_user.nombre }}');
+    
+    let turnoSeleccionado = null;
+    let estadoSeleccionado = null;
+    
+    // IDs de trámites asignados
+    const tramitesAsignados = {{ (current_user.tramites_asignados | map(attribute='id') | list) | tojson }};
+    console.log('Trámites asignados:', tramitesAsignados);
+    
+    // Conectar a Socket.IO
+    console.log('Conectando Socket.IO...');
+    const socket = io();
+    
+    socket.on('connect', function() {
+        console.log('✅ Socket conectado');
+    });
+    
+    socket.on('connect', function() {
+        console.log('Conectado al servidor');
+    });
+    
+    /**
+     * Escucha nuevos turnos creados
+     */
+    socket.on('nuevo_turno', function(data) {
+        console.log('Nuevo turno recibido:', data);
+        console.log('Trámites asignados al empleado:', tramitesAsignados);
+        console.log('Tipo de trámite del turno:', data.turno.tipo_tramite_id);
+        
+        // VALIDAR PRIMERO: Verificar que el turno pertenece a los trámites asignados
+        if (!tramitesAsignados.includes(data.turno.tipo_tramite_id)) {
+            console.log('✋ Turno ignorado: no pertenece a mis trámites asignados');
+            return;
+        }
+        
+        console.log('✅ Turno aceptado: pertenece a mis trámites');
+        
+        // Reproducir sonido de alerta
+        reproducirSonidoNuevoTurno();
+        
+        // Mostrar notificación prominente
+        mostrarNotificacionGrande('🔔 NUEVO TURNO: ' + data.turno.numero_turno, data.turno.categoria_atencion);
+        
+        // Agregar el turno a la lista correspondiente
+        agregarTurnoALista(data.turno);
+        
+        // Actualizar contadores de estadísticas
+        actualizarEstadisticas();
+    });
+    
+    /**
+     * Escucha actualizaciones de turnos
+     */
+    socket.on('turno_actualizado', function(data) {
+        console.log('Turno actualizado:', data);
+        actualizarTurnoEnVista(data.turno);
+    });
+
+} catch (error) {
+    console.error('❌ ERROR EN INICIALIZACIÓN:', error);
+    console.error('Stack:', error.stack);
+}
+
+// ===================================================================
+// FUNCIONES GLOBALES DEL DASHBOARD
+// ===================================================================
+    
+    /**
+     * Reproduce un sonido de alerta para nuevo turno
+     */
+    function reproducirSonidoNuevoTurno() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (error) {
+            console.log('No se pudo reproducir sonido:', error);
+        }
+    }
+    
+    /**
+     * Muestra una notificación grande y prominente
+     */
+    function mostrarNotificacionGrande(mensaje, categoria) {
+        // Crear elemento de notificación grande
+        const notifGrande = document.createElement('div');
+        notifGrande.className = 'notificacion-grande';
+        notifGrande.innerHTML = `
+            <div class="notif-contenido">
+                <div class="notif-icono">🔔</div>
+                <div class="notif-texto">${mensaje}</div>
+                <div class="notif-categoria">Categoría: ${obtenerNombreCategoria(categoria)}</div>
+            </div>
+        `;
+        
+        document.body.appendChild(notifGrande);
+        
+        // Animar entrada
+        setTimeout(() => notifGrande.classList.add('show'), 100);
+        
+        // Quitar después de 5 segundos
+        setTimeout(() => {
+            notifGrande.classList.remove('show');
+            setTimeout(() => notifGrande.remove(), 300);
+        }, 5000);
+    }
+    
+    /**
+     * Obtiene el nombre legible de la categoría
+     */
+    function obtenerNombreCategoria(categoria) {
+        const nombres = {
+            'adulto_mayor': '👴 Adulto Mayor',
+            'discapacidad': '♿ Discapacidad',
+            'embarazada': '🤰 Mujer Embarazada',
+            'ninguna': '👤 Regular'
+        };
+        return nombres[categoria] || categoria;
+    }
+    
+    /**
+     * Actualiza los contadores de estadísticas
+     */
+    function actualizarEstadisticas() {
+        // Incrementar total de hoy
+        const totalElem = document.querySelector('.stats-grid .stat-card:first-child h3');
+        if (totalElem) {
+            const total = parseInt(totalElem.textContent) || 0;
+            totalElem.textContent = total + 1;
+        }
+        
+        // Incrementar pendientes
+        const pendientesElem = document.querySelector('.stats-grid .stat-card.stat-warning h3');
+        if (pendientesElem) {
+            const pendientes = parseInt(pendientesElem.textContent) || 0;
+            pendientesElem.textContent = pendientes + 1;
+        }
+        
+        // Actualizar contador en la tab de categoría
+        actualizarContadorTab();
+    }
+    
+    /**
+     * Actualiza los contadores en los botones de tabs
+     */
+    function actualizarContadorTab() {
+        ['adulto_mayor', 'discapacidad', 'embarazada', 'ninguna'].forEach(categoria => {
+            const tab = document.querySelector(`#tab-${categoria}`);
+            if (!tab) return;
+            
+            const turnos = tab.querySelectorAll('.turno-card').length;
+            const button = document.querySelector(`.tab-button[onclick*="${categoria}"]`);
+            
+            if (button) {
+                const texto = button.textContent.replace(/\(\d+\)/, `(${turnos})`);
+                button.textContent = texto;
+            }
+        });
+    }
+    
+    /**
+     * Agrega un nuevo turno a la lista correspondiente sin recargar la página
+     */
+    function agregarTurnoALista(turno) {
+        const categoria = turno.categoria_atencion;
+        const tabContenido = document.querySelector(`#tab-${categoria}`);
+        
+        if (!tabContenido) {
+            console.error('No se encontró la tab para la categoría:', categoria);
+            return;
+        }
+        
+        // Buscar o crear el contenedor de turnos
+        let contenedor = tabContenido.querySelector('.turnos-grid');
+        
+        // Si no existe el contenedor (porque no había turnos), crearlo
+        if (!contenedor) {
+            // Eliminar el mensaje de "no hay turnos"
+            const noData = tabContenido.querySelector('.no-data');
+            if (noData) {
+                noData.remove();
+            }
+            
+            // Crear el contenedor de turnos
+            contenedor = document.createElement('div');
+            contenedor.className = 'turnos-grid';
+            tabContenido.appendChild(contenedor);
+        }
+        
+        // Crear el HTML del nuevo turno con información completa
+        const turnoHTML = `
+            <div class="turno-card turno-estado-${turno.estado}" data-turno-id="${turno.id}">
+                <div class="turno-card-header">
+                    <span class="turno-numero-grande">Turno ${turno.numero_turno}</span>
+                    <span class="estado-badge estado-${turno.estado}">${turno.estado.toUpperCase()}</span>
+                </div>
+                <div class="turno-card-body">
+                    <div class="info-item"><strong>Usuario:</strong> ${turno.usuario?.nombre || 'N/A'}</div>
+                    <div class="info-item"><strong>Cédula:</strong> ${turno.usuario?.cedula || 'N/A'}</div>
+                    <div class="info-item"><strong>Trámite:</strong> ${turno.tipo_tramite?.nombre || 'N/A'}</div>
+                    <div class="info-item"><strong>Hora:</strong> ${new Date(turno.fecha_solicitud).toLocaleTimeString()}</div>
+                </div>
+                <div class="turno-card-actions">
+                    <button id="btn-llamar-${turno.id}" onclick="llamarTurno(${turno.id})" class="btn btn-primary btn-small"
+                            ${turno.llamados_realizados >= 3 ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+                        📢 Llamar ${turno.llamados_realizados > 0 ? `(${turno.llamados_realizados}/3)` : ''}
+                    </button>
+                    <button onclick="mostrarModalEstado(${turno.id}, 'en_atencion')" class="btn btn-success btn-small">
+                        ▶️ Atender
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Agregar al principio de la lista
+        contenedor.insertAdjacentHTML('afterbegin', turnoHTML);
+        
+        console.log('✅ Turno agregado a la categoría:', categoria);
+    }
+    
+    /**
+     * Cambia entre las tabs de categorías
+     */
+    function cambiarTab(categoria) {
+        // Ocultar todos los contenidos
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Desactivar todos los botones
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Activar la tab seleccionada
+        document.getElementById(`tab-${categoria}`).classList.add('active');
+        event.target.classList.add('active');
+    }
+    
+    /**
+     * Llama a un turno para atención
+     */
+    async function llamarTurno(turnoId) {
+        const btnLlamar = document.getElementById(`btn-llamar-${turnoId}`);
+        
+        try {
+            const response = await fetch(`/empleado/turno/${turnoId}/llamar`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                mostrarNotificacion(data.mensaje, 'success');
+                
+                // Actualizar el botón con el contador
+                if (data.llamados_realizados) {
+                    btnLlamar.textContent = `📢 Llamar (${data.llamados_realizados}/3)`;
+                    
+                    // Deshabilitar después de 3 llamados
+                    if (data.llamados_realizados >= 3) {
+                        btnLlamar.disabled = true;
+                        btnLlamar.style.opacity = '0.5';
+                        btnLlamar.style.cursor = 'not-allowed';
+                    }
+                }
+            } else {
+                mostrarNotificacion(data.error || 'Error al llamar turno', 'error');
+            }
+        } catch (error) {
+            mostrarNotificacion('Error de conexión', 'error');
+            console.error(error);
+        }
+    }
+    
+    /**
+     * Muestra el modal para cambiar estado de turno
+     */
+    function mostrarModalEstado(turnoId, estado) {
+        turnoSeleccionado = turnoId;
+        estadoSeleccionado = estado;
+        
+        const mensajes = {
+            'en_atencion': '¿Desea marcar este turno como "En Atención"?',
+            'atendido': '¿Desea marcar este turno como "Atendido"?',
+            'cancelado': '¿Desea cancelar este turno?'
+        };
+        
+        document.getElementById('modalTitulo').textContent = 'Cambiar Estado del Turno';
+        document.getElementById('modalMensaje').textContent = mensajes[estado];
+        document.getElementById('observaciones').value = '';
+        document.getElementById('modalEstado').style.display = 'flex';
+    }
+    
+    /**
+     * Confirma el cambio de estado del turno
+     */
+    async function confirmarCambioEstado() {
+        const observaciones = document.getElementById('observaciones').value;
+        
+        console.log('[DEBUG] Confirmando cambio de estado:', {
+            turnoId: turnoSeleccionado,
+            estado: estadoSeleccionado,
+            observaciones: observaciones
+        });
+        
+        try {
+            const response = await fetch(`/empleado/turno/${turnoSeleccionado}/cambiar-estado`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    estado: estadoSeleccionado,
+                    observaciones: observaciones
+                })
+            });
+            
+            console.log('[DEBUG] Response status:', response.status);
+            const data = await response.json();
+            console.log('[DEBUG] Response data:', data);
+            
+            if (data.success) {
+                mostrarNotificacion(data.mensaje, 'success');
+                actualizarTurnoEnVista(data.turno);
+                cerrarModal();
+            } else {
+                const errorMsg = data.error || 'Error al cambiar estado';
+                console.error('[ERROR]', errorMsg);
+                mostrarNotificacion(errorMsg, 'error');
+            }
+        } catch (error) {
+            console.error('[ERROR] Error de conexión:', error);
+            mostrarNotificacion('Error de conexión: ' + error.message, 'error');
+        }
+    }
+    
+    /**
+     * Cierra el modal
+     */
+    function cerrarModal() {
+        document.getElementById('modalEstado').style.display = 'none';
+        turnoSeleccionado = null;
+        estadoSeleccionado = null;
+    }
+    
+    /**
+     * Actualiza un turno en la vista sin recargar la página
+     */
+    function actualizarTurnoEnVista(turno) {
+        const turnoCard = document.querySelector(`[data-turno-id="${turno.id}"]`);
+        
+        if (turnoCard) {
+            // Si el turno ya fue atendido o cancelado, removerlo de la vista
+            if (turno.estado === 'atendido' || turno.estado === 'cancelado') {
+                turnoCard.remove();
+                
+                // Actualizar contador
+                const tabButton = document.querySelector('.tab-button.active');
+                if (tabButton) {
+                    const match = tabButton.textContent.match(/\((\d+)\)/);
+                    if (match) {
+                        const count = parseInt(match[1]) - 1;
+                        tabButton.textContent = tabButton.textContent.replace(/\(\d+\)/, `(${count})`);
+                    }
+                }
+            } else {
+                // Actualizar el estado en la tarjeta
+                const estadoBadge = turnoCard.querySelector('.estado-badge');
+                if (estadoBadge) {
+                    estadoBadge.className = `estado-badge estado-${turno.estado}`;
+                    estadoBadge.textContent = turno.estado.toUpperCase();
+                }
+                
+                // Actualizar los botones de acción
+                const actionsDiv = turnoCard.querySelector('.turno-card-actions');
+                if (actionsDiv && turno.estado === 'en_atencion') {
+                    actionsDiv.innerHTML = `
+                        <button onclick="mostrarModalEstado(${turno.id}, 'atendido')" 
+                                class="btn btn-success btn-small">
+                            ✅ Finalizar
+                        </button>
+                        <button onclick="mostrarModalEstado(${turno.id}, 'cancelado')" 
+                                class="btn btn-danger btn-small">
+                            ❌ Cancelar
+                        </button>
+                    `;
+                }
+            }
+        }
+        
+        // No recargar la página, solo actualizar el turno en vista
+        // location.reload(); // Comentado para evitar interrumpir la atención
+    }
+    
+    /**
+     * Muestra una notificación temporal
+     */
+    function mostrarNotificacion(mensaje, tipo) {
+        const notif = document.createElement('div');
+        notif.className = `notificacion-toast notificacion-${tipo}`;
+        notif.textContent = mensaje;
+        
+        document.body.appendChild(notif);
+        
+        setTimeout(() => {
+            notif.classList.add('show');
+        }, 100);
+        
+        setTimeout(() => {
+            notif.classList.remove('show');
+            setTimeout(() => notif.remove(), 300);
+        }, 3000);
+    }
+    
+    // No recargar automáticamente para no interrumpir la atención
+    // Se puede actualizar manualmente con F5 si es necesario
+    // setInterval(() => {
+    //     location.reload();
+    // }, 30000);
+
+</script>
+</div> <!-- Cierre de main-content-with-sidebar -->
+{% endblock %}

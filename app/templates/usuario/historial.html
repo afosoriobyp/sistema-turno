@@ -1,0 +1,613 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Turnos{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos para la tabla de turnos anteriores */
+    .turnos-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .turnos-table thead {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .turnos-table th {
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    
+    .turnos-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        font-size: 0.9rem;
+    }
+    
+    .turnos-table tbody tr:hover {
+        background-color: #f0f4ff;
+        transition: background-color 0.3s ease;
+    }
+    
+    .turnos-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+    
+    /* Controles de paginación */
+    .pagination-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: #f9f9f9;
+        border-radius: 8px;
+    }
+    
+    .pagination-info {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .pagination-buttons {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .page-numbers {
+        display: flex;
+        gap: 0.25rem;
+    }
+    
+    .pagination-buttons button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .pagination-buttons button:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    @media (max-width: 768px) {
+        .turnos-table {
+            font-size: 0.8rem;
+        }
+        
+        .turnos-table th,
+        .turnos-table td {
+            padding: 0.75rem 0.5rem;
+        }
+        
+        .pagination-controls {
+            flex-direction: column;
+            gap: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="historial-container">
+    <div class="header">
+        <h1>📜 Historial de Turnos</h1>
+    </div>
+    
+    <!-- Área de notificaciones -->
+    <div id="notificaciones" class="notificaciones-area"></div>
+    
+    {% if turno_actual %}
+    <!-- Turno actual en espera -->
+    <div class="turno-actual-card">
+        <div class="turno-header">
+            <h2>Su Turno Actual</h2>
+            <span class="turno-numero">{{ turno_actual.numero_turno }}</span>
+        </div>
+        
+        <div class="turno-info">
+            <div class="info-row">
+                <span class="label">Estado:</span>
+                <span class="estado-badge estado-{{ turno_actual.estado }}" id="estadoActual">
+                    {{ turno_actual.estado|upper }}
+                </span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">Trámite:</span>
+                <span class="value">{{ turno_actual.tipo_tramite.nombre }}</span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">Categoría:</span>
+                <span class="value">
+                    {% if turno_actual.categoria_atencion == 'adulto_mayor' %}
+                        👴 Adulto Mayor
+                    {% elif turno_actual.categoria_atencion == 'discapacidad' %}
+                        ♿ Discapacidad
+                    {% elif turno_actual.categoria_atencion == 'embarazada' %}
+                        🤰 Mujer Embarazada
+                    {% else %}
+                        👤 Atención Regular
+                    {% endif %}
+                </span>
+            </div>
+            
+            <div class="info-row">
+                <span class="label">Hora de Solicitud:</span>
+                <span class="value">{{ turno_actual.fecha_solicitud.strftime('%H:%M:%S') }}</span>
+            </div>
+        </div>
+        
+        {% if turno_actual.estado == 'pendiente' %}
+        <div class="mensaje-espera">
+            <p>⏳ Por favor espere. Será notificado cuando sea su turno de atención.</p>
+        </div>
+        {% elif turno_actual.estado == 'en_atencion' %}
+        <div class="mensaje-atencion">
+            <p>✅ Su turno está siendo llamado. Por favor diríjase a la ventanilla de atención.</p>
+        </div>
+        {% elif turno_actual.estado == 'atendido' %}
+        <div class="mensaje-atendido">
+            <p>✅ Su turno ha sido atendido. ¡Gracias por su visita!</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="acciones-footer mt-5 mb-5">
+        <a href="{{ url_for('usuario.inicio') }}" class="btn btn-secondary">
+            🏠 Solicitar Nuevo Turno
+        </a>
+    </div>
+    
+    <!-- Historial de turnos anteriores -->
+    {% if turnos|length > 1 %}
+    <div class="historial-section" style="margin-top: 2rem;">
+        <h2>Turnos Anteriores</h2>
+        
+        <!-- Tabla de Turnos -->
+        <div class="table-responsive">
+            <table class="turnos-table">
+                <thead>
+                    <tr>
+                        <th>Turno</th>
+                        <th>Trámite</th>
+                        <th>Fecha</th>
+                        <th>Atendido</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="turnosTableBody">
+                    {% for turno in turnos %}
+                        {% if turno.id != turno_actual.id %}
+                        <tr class="turno-row">
+                            <td><strong>{{ turno.numero_turno }}</strong></td>
+                            <td>{{ turno.tipo_tramite.nombre }}</td>
+                            <td>{{ turno.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}</td>
+                            <td>
+                                {% if turno.fecha_atencion %}
+                                    {{ turno.fecha_atencion.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    <span style="color: #999;">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="estado-badge estado-{{ turno.estado }}">
+                                    {{ turno.estado|upper }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Controles de Paginación -->
+        <div class="pagination-controls">
+            <div class="pagination-info" id="paginationInfo"></div>
+            <div class="pagination-buttons">
+                <button id="prevPage" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-chevron-left"></i> Anterior
+                </button>
+                <span id="pageNumbers" class="page-numbers"></span>
+                <button id="nextPage" class="btn btn-sm btn-secondary">
+                    Siguiente <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <!-- No hay turno actual -->
+    <div class="no-turno-card">
+        <div class="no-turno-icon">🎫</div>
+        <h2>No tiene turnos activos</h2>
+        <p>Solicite un nuevo turno para ser atendido</p>
+        <a href="{{ url_for('usuario.inicio') }}" class="btn btn-primary">
+            Solicitar Nuevo Turno
+        </a>
+    </div>
+    {% endif %}
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if turno_actual %}
+<script>
+    const turnoId = {{ turno_actual.id }};
+    
+    /**
+     * Conecta al servidor WebSocket para recibir notificaciones en tiempo real
+     */
+    const socket = io();
+    
+    socket.on('connect', function() {
+        console.log('✅ Conectado al servidor Socket.IO');
+        console.log('📋 Esperando notificaciones para turno ID:', turnoId);
+    });
+    
+    socket.on('disconnect', function() {
+        console.log('❌ Desconectado del servidor Socket.IO');
+    });
+    
+    /**
+     * Escucha el evento de turno llamado
+     */
+    socket.on('llamar_turno', function(data) {
+        console.log('🔔 Evento llamar_turno recibido:', data);
+        if (data.turno.id === turnoId) {
+            console.log('✅ ¡Este turno es para mí!');
+            mostrarNotificacion(data.notificacion.mensaje, 'success');
+            actualizarEstadoTurno('en_atencion');
+            
+            // Reproducir sonido y vibrar
+            reproducirSonidoAlerta();
+            vibrarDispositivo();
+        } else {
+            console.log('⏭️ Turno ignorado (ID:', data.turno.id, 'vs mi ID:', turnoId, ')');
+        }
+    });
+    
+    /**
+     * Escucha el evento de turno actualizado
+     */
+    socket.on('turno_actualizado', function(data) {
+        console.log('🔄 Evento turno_actualizado recibido:', data);
+        if (data.turno.id === turnoId) {
+            console.log('✅ Actualizando mi turno a estado:', data.turno.estado);
+            actualizarEstadoTurno(data.turno.estado);
+            
+            // Si el turno fue atendido, reproducir sonido y mostrar notificación especial
+            if (data.turno.estado === 'atendido') {
+                console.log('✅ Turno finalizado - Reproduciendo sonido y mostrando notificación');
+                reproducirSonidoFinalizado();
+                vibrarDispositivo();
+                mostrarNotificacion('✅ Su turno ha sido atendido. ¡Gracias por su visita!', 'success');
+            }
+        }
+    });
+    
+    /**
+     * Verifica periódicamente si hay notificaciones nuevas
+     */
+    setInterval(verificarNotificaciones, 10000); // Cada 10 segundos
+    
+    async function verificarNotificaciones() {
+        try {
+            const response = await fetch(`/usuario/verificar-notificaciones/${turnoId}`);
+            const data = await response.json();
+            
+            if (data.notificaciones && data.notificaciones.length > 0) {
+                data.notificaciones.forEach(notif => {
+                    mostrarNotificacion(notif.mensaje, 'info');
+                    marcarNotificacionLeida(notif.id);
+                });
+            }
+        } catch (error) {
+            console.error('Error al verificar notificaciones:', error);
+        }
+    }
+    
+    /**
+     * Muestra una notificación visual al usuario
+     */
+    function mostrarNotificacion(mensaje, tipo = 'info') {
+        const notificacionesDiv = document.getElementById('notificaciones');
+        const notifElement = document.createElement('div');
+        notifElement.className = `notificacion notificacion-${tipo}`;
+        notifElement.innerHTML = `
+            <p>${mensaje}</p>
+            <button onclick="this.parentElement.remove()">✕</button>
+        `;
+        
+        notificacionesDiv.insertBefore(notifElement, notificacionesDiv.firstChild);
+        
+        // Auto-eliminar después de 10 segundos
+        setTimeout(() => {
+            if (notifElement.parentElement) {
+                notifElement.remove();
+            }
+        }, 10000);
+    }
+    
+    /**
+     * Actualiza visualmente el estado del turno
+     */
+    function actualizarEstadoTurno(nuevoEstado) {
+        console.log('🔄 Actualizando estado visual a:', nuevoEstado);
+        
+        const estadoBadge = document.getElementById('estadoActual');
+        if (estadoBadge) {
+            estadoBadge.className = `estado-badge estado-${nuevoEstado}`;
+            estadoBadge.textContent = nuevoEstado.toUpperCase().replace('_', ' ');
+        }
+        
+        // Actualizar mensaje según estado
+        const mensajeEspera = document.querySelector('.mensaje-espera');
+        const mensajeAtencion = document.querySelector('.mensaje-atencion');
+        const mensajeAtendido = document.querySelector('.mensaje-atendido');
+        
+        // Ocultar todos los mensajes primero
+        if (mensajeEspera) mensajeEspera.style.display = 'none';
+        if (mensajeAtencion) mensajeAtencion.style.display = 'none';
+        if (mensajeAtendido) mensajeAtendido.style.display = 'none';
+        
+        // Mostrar el mensaje correspondiente
+        if (nuevoEstado === 'en_atencion' && mensajeAtencion) {
+            mensajeAtencion.style.display = 'block';
+            console.log('✅ Mensaje de atención mostrado');
+        } else if (nuevoEstado === 'atendido' && mensajeAtendido) {
+            mensajeAtendido.style.display = 'block';
+            console.log('✅ Mensaje de atendido mostrado');
+        } else if (nuevoEstado === 'pendiente' && mensajeEspera) {
+            mensajeEspera.style.display = 'block';
+            console.log('✅ Mensaje de espera mostrado');
+        }
+    }
+    
+    /**
+     * Marca una notificación como leída
+     */
+    async function marcarNotificacionLeida(notificacionId) {
+        try {
+            await fetch(`/usuario/marcar-notificacion-leida/${notificacionId}`, {
+                method: 'POST'
+            });
+        } catch (error) {
+            console.error('Error al marcar notificación:', error);
+        }
+    }
+    
+    /**
+     * Reproduce un sonido de alerta más notorio para llamar la atención
+     */
+    function reproducirSonidoAlerta() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Primer beep (más agudo)
+            setTimeout(() => {
+                const oscillator1 = audioContext.createOscillator();
+                const gainNode1 = audioContext.createGain();
+                
+                oscillator1.connect(gainNode1);
+                gainNode1.connect(audioContext.destination);
+                
+                oscillator1.frequency.value = 1000; // Más agudo
+                oscillator1.type = 'sine';
+                
+                gainNode1.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gainNode1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator1.start(audioContext.currentTime);
+                oscillator1.stop(audioContext.currentTime + 0.3);
+            }, 0);
+            
+            // Segundo beep (más grave)
+            setTimeout(() => {
+                const oscillator2 = audioContext.createOscillator();
+                const gainNode2 = audioContext.createGain();
+                
+                oscillator2.connect(gainNode2);
+                gainNode2.connect(audioContext.destination);
+                
+                oscillator2.frequency.value = 800;
+                oscillator2.type = 'sine';
+                
+                gainNode2.gain.setValueAtTime(0.5, audioContext.currentTime);
+                gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator2.start(audioContext.currentTime);
+                oscillator2.stop(audioContext.currentTime + 0.3);
+            }, 400);
+            
+            // Tercer beep (más agudo)
+            setTimeout(() => {
+                const oscillator3 = audioContext.createOscillator();
+                const gainNode3 = audioContext.createGain();
+                
+                oscillator3.connect(gainNode3);
+                gainNode3.connect(audioContext.destination);
+                
+                oscillator3.frequency.value = 1200;
+                oscillator3.type = 'sine';
+                
+                gainNode3.gain.setValueAtTime(0.6, audioContext.currentTime);
+                gainNode3.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator3.start(audioContext.currentTime);
+                oscillator3.stop(audioContext.currentTime + 0.5);
+            }, 800);
+            
+            console.log('🔊 Sonido de alerta reproducido');
+        } catch (error) {
+            console.error('Error al reproducir sonido:', error);
+        }
+    }
+    
+    /**
+     * Vibra el dispositivo móvil (si está soportado)
+     */
+    function vibrarDispositivo() {
+        if ('vibrate' in navigator) {
+            // Patrón de vibración: vibrar 200ms, pausa 100ms, vibrar 200ms, pausa 100ms, vibrar 400ms
+            navigator.vibrate([200, 100, 200, 100, 400]);
+            console.log('📳 Dispositivo vibrado');
+        } else {
+            console.log('⚠️ Vibración no soportada en este dispositivo');
+        }
+    }
+    
+    /**
+     * Reproduce un sonido de finalización (más agradable y completo)
+     */
+    function reproducirSonidoFinalizado() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Secuencia ascendente de tonos (do-mi-sol-do)
+            const tonos = [
+                { freq: 523, tiempo: 0, duracion: 0.2 },      // Do
+                { freq: 659, tiempo: 0.25, duracion: 0.2 },   // Mi
+                { freq: 784, tiempo: 0.5, duracion: 0.2 },    // Sol
+                { freq: 1047, tiempo: 0.75, duracion: 0.4 }   // Do (octava alta)
+            ];
+            
+            tonos.forEach(tono => {
+                setTimeout(() => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = tono.freq;
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + tono.duracion);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + tono.duracion);
+                }, tono.tiempo * 1000);
+            });
+            
+            console.log('🎵 Sonido de finalización reproducido');
+        } catch (error) {
+            console.error('Error al reproducir sonido de finalización:', error);
+        }
+    }
+    
+    // Verificar notificaciones al cargar la página
+    verificarNotificaciones();
+    
+    // ========== SISTEMA DE PAGINACIÓN ==========
+    let currentPage = 1;
+    const rowsPerPage = 5;
+    let allRows = [];
+    
+    function initializePagination() {
+        const tableBody = document.getElementById('turnosTableBody');
+        if (!tableBody) return;
+        
+        allRows = Array.from(tableBody.querySelectorAll('.turno-row'));
+        
+        if (allRows.length === 0) return;
+        
+        displayPage();
+    }
+    
+    function displayPage() {
+        // Ocultar todas las filas
+        allRows.forEach(row => row.style.display = 'none');
+        
+        // Calcular índices
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        
+        // Mostrar filas de la página actual
+        const rowsToShow = allRows.slice(startIndex, endIndex);
+        rowsToShow.forEach(row => row.style.display = '');
+        
+        // Actualizar controles
+        updatePaginationControls();
+    }
+    
+    function updatePaginationControls() {
+        const totalPages = Math.ceil(allRows.length / rowsPerPage);
+        const startRecord = allRows.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1;
+        const endRecord = Math.min(currentPage * rowsPerPage, allRows.length);
+        
+        // Actualizar información
+        const infoEl = document.getElementById('paginationInfo');
+        if (infoEl) {
+            infoEl.textContent = `Mostrando ${startRecord} a ${endRecord} de ${allRows.length} turno(s)`;
+        }
+        
+        // Actualizar botones
+        const prevBtn = document.getElementById('prevPage');
+        const nextBtn = document.getElementById('nextPage');
+        
+        if (prevBtn) prevBtn.disabled = currentPage === 1;
+        if (nextBtn) nextBtn.disabled = currentPage === totalPages || totalPages === 0;
+        
+        // Generar números de página
+        const pageNumbers = document.getElementById('pageNumbers');
+        if (pageNumbers) {
+            pageNumbers.innerHTML = '';
+            
+            for (let i = 1; i <= totalPages; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.textContent = i;
+                pageBtn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-secondary');
+                pageBtn.style.margin = '0 0.25rem';
+                pageBtn.onclick = () => {
+                    currentPage = i;
+                    displayPage();
+                };
+                pageNumbers.appendChild(pageBtn);
+            }
+        }
+    }
+    
+    // Configurar botones de paginación
+    document.addEventListener('DOMContentLoaded', function() {
+        const prevBtn = document.getElementById('prevPage');
+        const nextBtn = document.getElementById('nextPage');
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    displayPage();
+                }
+            });
+        }
+        
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                const totalPages = Math.ceil(allRows.length / rowsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    displayPage();
+                }
+            });
+        }
+        
+        initializePagination();
+    });
+</script>
+{% endif %}
+{% endblock %}

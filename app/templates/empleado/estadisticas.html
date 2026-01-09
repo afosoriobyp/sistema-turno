@@ -1,0 +1,610 @@
+{% extends "base.html" %}
+
+{% block title %}Estadísticas - Empleados{% endblock %}
+
+{% block content %}
+<!-- Incluir Sidebar -->
+{% include 'components/sidebar.html' %}
+
+<div class="main-content-with-sidebar">
+<div class="estadisticas-container">
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <h1>📈 Estadísticas de Atención</h1>
+        </div>
+        <div class="navbar-menu">
+            <a href="{{ url_for('empleado.dashboard') }}" class="btn btn-outline">
+                ← Volver al Dashboard
+            </a>
+            <a href="{{ url_for('empleado.logout') }}" class="btn btn-outline">
+                🚪 Cerrar Sesión
+            </a>
+        </div>
+    </nav>
+    
+    <!-- Filtros de fecha -->
+    <div class="filtros-card">
+        <h2>Filtros de Consulta</h2>
+        <form id="formFiltros" onsubmit="return consultarEstadisticas(event)">
+            <div class="filtros-grid">
+                <div class="form-group">
+                    <label for="fechaInicio">Fecha Inicio:</label>
+                    <input type="date" id="fechaInicio" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="fechaFin">Fecha Fin:</label>
+                    <input type="date" id="fechaFin" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">
+                        🔍 Consultar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Resultados -->
+    <div id="resultados" style="display: none;">
+        <!-- Resumen general -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-info">
+                    <h3 id="totalTurnos">0</h3>
+                    <p>Total de Turnos</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-success">
+                <div class="stat-icon">✅</div>
+                <div class="stat-info">
+                    <h3 id="turnosAtendidos">0</h3>
+                    <p>Atendidos</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-warning">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-info">
+                    <h3 id="turnosPendientes">0</h3>
+                    <p>Pendientes</p>
+                </div>
+            </div>
+            
+            <div class="stat-card stat-info">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-info">
+                    <h3 id="tiempoPromedio">0</h3>
+                    <p>Tiempo Promedio (min)</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gráficos y detalles -->
+        <div class="estadisticas-grid">
+            <!-- Turnos por estado -->
+            <div class="estadistica-card">
+                <h3>Turnos por Estado</h3>
+                <div class="chart-container">
+                    <canvas id="chartEstados"></canvas>
+                </div>
+                <div id="listaEstados" class="stats-list"></div>
+            </div>
+            
+            <!-- Turnos por categoría -->
+            <div class="estadistica-card">
+                <h3>Turnos por Categoría de Atención</h3>
+                <div class="chart-container">
+                    <canvas id="chartCategorias"></canvas>
+                </div>
+                <div id="listaCategorias" class="stats-list"></div>
+            </div>
+        </div>
+        
+        <!-- Turnos por tipo de trámite -->
+        <div class="estadistica-card-full">
+            <h3>Turnos por Tipo de Trámite</h3>
+            <div class="chart-container-large">
+                <canvas id="chartTramites"></canvas>
+            </div>
+            <div id="listaTramites" class="stats-list"></div>
+        </div>
+        
+        <!-- Botón para exportar -->
+        <div class="export-section">
+            <button onclick="exportarPDF()" class="btn btn-secondary">
+                📄 Exportar a PDF
+            </button>
+            <button onclick="exportarExcel()" class="btn btn-secondary">
+                📊 Exportar a Excel
+            </button>
+        </div>
+    </div>
+    
+    <!-- Mensaje cuando no hay datos -->
+    <div id="sinDatos" class="no-data" style="display: none;">
+        <p>Seleccione un rango de fechas para consultar las estadísticas</p>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+    let datosEstadisticas = null;
+    let charts = {
+        estados: null,
+        categorias: null,
+        tramites: null
+    };
+    
+    /**
+     * Establece las fechas por defecto (último mes)
+     */
+    window.onload = function() {
+        const hoy = new Date();
+        const hace30dias = new Date();
+        hace30dias.setDate(hoy.getDate() - 30);
+        
+        document.getElementById('fechaFin').valueAsDate = hoy;
+        document.getElementById('fechaInicio').valueAsDate = hace30dias;
+    };
+    
+    /**
+     * Consulta las estadísticas según el rango de fechas
+     */
+    async function consultarEstadisticas(event) {
+        event.preventDefault();
+        
+        const fechaInicio = document.getElementById('fechaInicio').value;
+        const fechaFin = document.getElementById('fechaFin').value;
+        
+        if (!fechaInicio || !fechaFin) {
+            alert('Por favor seleccione ambas fechas');
+            return false;
+        }
+        
+        try {
+            const response = await fetch('{{ url_for("empleado.obtener_estadisticas") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    fecha_inicio: fechaInicio,
+                    fecha_fin: fechaFin
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                datosEstadisticas = data;
+                mostrarEstadisticas(data);
+            } else {
+                alert(data.error || 'Error al consultar estadísticas');
+            }
+        } catch (error) {
+            alert('Error de conexión');
+            console.error(error);
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Muestra las estadísticas en la interfaz
+     */
+    function mostrarEstadisticas(data) {
+        // Mostrar sección de resultados
+        document.getElementById('resultados').style.display = 'block';
+        document.getElementById('sinDatos').style.display = 'none';
+        
+        // Actualizar valores generales
+        document.getElementById('totalTurnos').textContent = data.total_turnos;
+        document.getElementById('turnosAtendidos').textContent = data.turnos_por_estado.atendido;
+        document.getElementById('turnosPendientes').textContent = data.turnos_por_estado.pendiente;
+        document.getElementById('tiempoPromedio').textContent = data.tiempo_promedio_atencion;
+        
+        // Crear gráficos
+        crearGraficoEstados(data.turnos_por_estado);
+        crearGraficoCategorias(data.turnos_por_categoria);
+        crearGraficoTramites(data.turnos_por_tramite);
+        
+        // Crear listas detalladas
+        crearListaEstados(data.turnos_por_estado);
+        crearListaCategorias(data.turnos_por_categoria);
+        crearListaTramites(data.turnos_por_tramite);
+    }
+    
+    /**
+     * Crea el gráfico de turnos por estado
+     */
+    function crearGraficoEstados(datos) {
+        const ctx = document.getElementById('chartEstados').getContext('2d');
+        
+        // Destruir gráfico anterior si existe
+        if (charts.estados) {
+            charts.estados.destroy();
+        }
+        
+        charts.estados = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Atendidos', 'Pendientes', 'En Atención', 'Cancelados'],
+                datasets: [{
+                    data: [
+                        datos.atendido,
+                        datos.pendiente,
+                        datos.en_atencion,
+                        datos.cancelado
+                    ],
+                    backgroundColor: [
+                        '#28a745',
+                        '#ffc107',
+                        '#17a2b8',
+                        '#dc3545'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 8,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Crea el gráfico de turnos por categoría
+     */
+    function crearGraficoCategorias(datos) {
+        const ctx = document.getElementById('chartCategorias').getContext('2d');
+        
+        if (charts.categorias) {
+            charts.categorias.destroy();
+        }
+        
+        charts.categorias = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: ['Adulto Mayor', 'Discapacidad', 'Embarazada', 'Regular'],
+                datasets: [{
+                    data: [
+                        datos.adulto_mayor,
+                        datos.discapacidad,
+                        datos.embarazada,
+                        datos.ninguna
+                    ],
+                    backgroundColor: [
+                        '#6f42c1',
+                        '#fd7e14',
+                        '#e83e8c',
+                        '#6c757d'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 8,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Crea el gráfico de turnos por tipo de trámite
+     */
+    function crearGraficoTramites(datos) {
+        const ctx = document.getElementById('chartTramites').getContext('2d');
+        
+        if (charts.tramites) {
+            charts.tramites.destroy();
+        }
+        
+        const labels = Object.keys(datos);
+        const values = Object.values(datos);
+        
+        charts.tramites = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Número de Turnos',
+                    data: values,
+                    backgroundColor: '#007bff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * Crea la lista detallada de estados
+     */
+    function crearListaEstados(datos) {
+        const lista = document.getElementById('listaEstados');
+        lista.innerHTML = `
+            <div class="stat-item">
+                <span class="stat-label">✅ Atendidos:</span>
+                <span class="stat-value">${datos.atendido}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">⏳ Pendientes:</span>
+                <span class="stat-value">${datos.pendiente}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">🔄 En Atención:</span>
+                <span class="stat-value">${datos.en_atencion}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">❌ Cancelados:</span>
+                <span class="stat-value">${datos.cancelado}</span>
+            </div>
+        `;
+    }
+    
+    /**
+     * Crea la lista detallada de categorías
+     */
+    function crearListaCategorias(datos) {
+        const lista = document.getElementById('listaCategorias');
+        lista.innerHTML = `
+            <div class="stat-item">
+                <span class="stat-label">👴 Adulto Mayor:</span>
+                <span class="stat-value">${datos.adulto_mayor}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">♿ Discapacidad:</span>
+                <span class="stat-value">${datos.discapacidad}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">🤰 Embarazada:</span>
+                <span class="stat-value">${datos.embarazada}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">👤 Regular:</span>
+                <span class="stat-value">${datos.ninguna}</span>
+            </div>
+        `;
+    }
+    
+    /**
+     * Crea la lista detallada de trámites
+     */
+    function crearListaTramites(datos) {
+        const lista = document.getElementById('listaTramites');
+        let html = '';
+        
+        for (const [tramite, cantidad] of Object.entries(datos)) {
+            html += `
+                <div class="stat-item">
+                    <span class="stat-label">📋 ${tramite}:</span>
+                    <span class="stat-value">${cantidad}</span>
+                </div>
+            `;
+        }
+        
+        lista.innerHTML = html;
+    }
+    
+    /**
+     * Exporta las estadísticas a PDF con gráficos
+     */
+    async function exportarPDF() {
+        if (!datosEstadisticas) {
+            alert('No hay datos para exportar. Por favor, realice una consulta primero.');
+            return;
+        }
+        
+        try {
+            // Mostrar indicador de carga
+            const btnExportar = event.target;
+            const textoOriginal = btnExportar.textContent;
+            btnExportar.textContent = '⏳ Generando PDF...';
+            btnExportar.disabled = true;
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título
+            doc.setFontSize(18);
+            doc.setTextColor(0, 123, 255);
+            doc.text('Estadísticas de Atención', 105, 15, { align: 'center' });
+            
+            // Fecha del reporte
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 105, 22, { align: 'center' });
+            
+            // Período consultado
+            const fechaInicio = document.getElementById('fechaInicio').value;
+            const fechaFin = document.getElementById('fechaFin').value;
+            doc.text(`Período: ${fechaInicio} al ${fechaFin}`, 105, 27, { align: 'center' });
+            
+            // Resumen general
+            doc.setFontSize(12);
+            doc.setTextColor(0);
+            doc.text('Resumen General', 20, 38);
+            
+            doc.setFontSize(10);
+            let y = 45;
+            doc.text(`Total de Turnos: ${datosEstadisticas.total_turnos}`, 25, y);
+            doc.text(`Tiempo Promedio: ${datosEstadisticas.tiempo_promedio_atencion} min`, 120, y);
+            y += 7;
+            doc.text(`Atendidos: ${datosEstadisticas.turnos_por_estado.atendido}`, 25, y);
+            doc.text(`En Atención: ${datosEstadisticas.turnos_por_estado.en_atencion}`, 120, y);
+            y += 7;
+            doc.text(`Pendientes: ${datosEstadisticas.turnos_por_estado.pendiente}`, 25, y);
+            doc.text(`Cancelados: ${datosEstadisticas.turnos_por_estado.cancelado}`, 120, y);
+            
+            y += 12;
+            
+            // Capturar gráfico de estados
+            doc.setFontSize(12);
+            doc.text('Turnos por Estado', 20, y);
+            y += 5;
+            
+            const chartEstados = document.getElementById('chartEstados');
+            if (chartEstados) {
+                const canvasEstados = await html2canvas(chartEstados, {
+                    backgroundColor: '#ffffff',
+                    scale: 2
+                });
+                const imgEstados = canvasEstados.toDataURL('image/png');
+                doc.addImage(imgEstados, 'PNG', 15, y, 80, 60);
+            }
+            
+            // Capturar gráfico de categorías
+            doc.text('Turnos por Categoría', 110, y);
+            
+            const chartCategorias = document.getElementById('chartCategorias');
+            if (chartCategorias) {
+                const canvasCategorias = await html2canvas(chartCategorias, {
+                    backgroundColor: '#ffffff',
+                    scale: 2
+                });
+                const imgCategorias = canvasCategorias.toDataURL('image/png');
+                doc.addImage(imgCategorias, 'PNG', 105, y + 5, 80, 60);
+            }
+            
+            y += 70;
+            
+            // Nueva página para gráfico de trámites
+            doc.addPage();
+            y = 20;
+            
+            doc.setFontSize(12);
+            doc.text('Turnos por Tipo de Trámite', 20, y);
+            y += 5;
+            
+            const chartTramites = document.getElementById('chartTramites');
+            if (chartTramites) {
+                const canvasTramites = await html2canvas(chartTramites, {
+                    backgroundColor: '#ffffff',
+                    scale: 2
+                });
+                const imgTramites = canvasTramites.toDataURL('image/png');
+                doc.addImage(imgTramites, 'PNG', 15, y, 180, 80);
+            }
+            
+            y += 90;
+            
+            // Lista de trámites
+            doc.setFontSize(10);
+            const tramites = datosEstadisticas.turnos_por_tramite;
+            for (const [tramite, cantidad] of Object.entries(tramites)) {
+                if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                }
+                doc.text(`${tramite}: ${cantidad}`, 20, y);
+                y += 6;
+            }
+            
+            // Guardar PDF
+            doc.save(`estadisticas_${fechaInicio}_${fechaFin}.pdf`);
+            
+            // Restaurar botón
+            btnExportar.textContent = textoOriginal;
+            btnExportar.disabled = false;
+            
+        } catch (error) {
+            console.error('Error al generar PDF:', error);
+            alert('Error al generar el PDF: ' + error.message);
+            event.target.disabled = false;
+            event.target.textContent = '📄 Exportar a PDF';
+        }
+    }
+    
+    /**
+     * Exporta las estadísticas a Excel (funcionalidad básica)
+     */
+    function exportarExcel() {
+        if (!datosEstadisticas) {
+            alert('No hay datos para exportar. Por favor, realice una consulta primero.');
+            return;
+        }
+        
+        // Crear contenido CSV
+        let csv = 'Estadísticas de Atención\n\n';
+        
+        // Período
+        const fechaInicio = document.getElementById('fechaInicio').value;
+        const fechaFin = document.getElementById('fechaFin').value;
+        csv += `Período,${fechaInicio} al ${fechaFin}\n\n`;
+        
+        // Resumen General
+        csv += 'Resumen General\n';
+        csv += `Total de Turnos,${datosEstadisticas.total_turnos}\n`;
+        csv += `Atendidos,${datosEstadisticas.turnos_por_estado.atendido}\n`;
+        csv += `Pendientes,${datosEstadisticas.turnos_por_estado.pendiente}\n`;
+        csv += `En Atención,${datosEstadisticas.turnos_por_estado.en_atencion}\n`;
+        csv += `Cancelados,${datosEstadisticas.turnos_por_estado.cancelado}\n`;
+        csv += `Tiempo Promedio (min),${datosEstadisticas.tiempo_promedio_atencion}\n\n`;
+        
+        // Categorías
+        csv += 'Turnos por Categoría\n';
+        csv += `Adulto Mayor,${datosEstadisticas.turnos_por_categoria.adulto_mayor}\n`;
+        csv += `Discapacidad,${datosEstadisticas.turnos_por_categoria.discapacidad}\n`;
+        csv += `Embarazada,${datosEstadisticas.turnos_por_categoria.embarazada}\n`;
+        csv += `Regular,${datosEstadisticas.turnos_por_categoria.ninguna}\n\n`;
+        
+        // Trámites
+        csv += 'Turnos por Tipo de Trámite\n';
+        for (const [tramite, cantidad] of Object.entries(datosEstadisticas.turnos_por_tramite)) {
+            csv += `${tramite},${cantidad}\n`;
+        }
+        
+        // Crear y descargar archivo
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `estadisticas_${fechaInicio}_${fechaFin}.csv`;
+        link.click();
+    }
+</script>
+</div> <!-- Cierre de main-content-with-sidebar -->
+{% endblock %}

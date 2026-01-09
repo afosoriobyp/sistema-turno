@@ -1,0 +1,24 @@
+services:
+  # Servicio Web (Aplicación Flask)
+  - type: web
+    name: sistema-turno
+    env: python
+    region: oregon  # Región más económica
+    plan: free
+    branch: main  # O 'master' según tu rama principal
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: SECRET_KEY
+        generateValue: true  # Render genera automáticamente
+      - key: FLASK_ENV
+        value: production
+    
+  # Base de Datos PostgreSQL (Gratis)
+databases:
+  - name: sistema-turno-db
+    databaseName: sistema_turnos
+    plan: free
+    user: sistema_turno_user

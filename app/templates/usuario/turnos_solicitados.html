@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Turnos Solicitados - Sistema de Turnos{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1000px; margin: 2rem auto; padding: 0 1rem;">
+    <div class="card" style="background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 2rem;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <div>
+                <h1 style="margin: 0; color: #333; font-size: 1.8rem;">
+                    <i class="fas fa-list-ol"></i> Turnos en Espera
+                </h1>
+                <p style="color: #666; margin: 0.5rem 0 0 0;">
+                    {{ turnos|length }} turno(s) pendiente(s) de atención
+                </p>
+            </div>
+            <button onclick="window.location.href='{{ url_for('usuario.inicio') }}'" 
+                    class="btn btn-secondary"
+                    style="padding: 0.75rem 1.5rem;">
+                <i class="fas fa-arrow-left"></i> Volver
+            </button>
+        </div>
+
+        <!-- Tabla de Turnos -->
+        {% if turnos %}
+        <div class="table-responsive">
+            <table class="table-modern" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Número de Turno</th>
+                        <th style="padding: 1rem; text-align: left; font-weight: 600;">Trámite</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Estado</th>
+                        <th style="padding: 1rem; text-align: center; font-weight: 600;">Fecha y Hora</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for turno in turnos %}
+                    <tr style="border-bottom: 1px solid #eee; {% if loop.index % 2 == 0 %}background-color: #f9f9f9;{% endif %}">
+                        <td style="padding: 1rem;">
+                            <strong style="color: #667eea; font-size: 1.2rem;">{{ turno.numero_turno }}</strong>
+                        </td>
+                        <td style="padding: 1rem;">
+                            {% if turno.tipo_tramite %}
+                                <div style="display: flex; align-items: center;">
+                                    <i class="fas fa-file-alt" style="color: #667eea; margin-right: 0.5rem;"></i>
+                                    <span>{{ turno.tipo_tramite.nombre }}</span>
+                                </div>
+                            {% else %}
+                                <span style="color: #999;">-</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem; text-align: center;">
+                            {% if turno.estado == 'pendiente' %}
+                                <span class="badge badge-warning" style="padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem;">
+                                    <i class="fas fa-clock"></i> Pendiente
+                                </span>
+                            {% elif turno.estado == 'en_atencion' %}
+                                <span class="badge badge-info" style="padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem;">
+                                    <i class="fas fa-user-clock"></i> En Atención
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem; text-align: center;">
+                            <small style="color: #666;">
+                                {{ turno.fecha_solicitud.strftime('%d/%m/%Y') }}<br>
+                                <span style="font-weight: 600; color: #333;">{{ turno.fecha_solicitud.strftime('%H:%M:%S') }}</span>
+                            </small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state" style="text-align: center; padding: 3rem; color: #999;">
+            <i class="fas fa-inbox" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+            <p style="font-size: 1.2rem; margin: 0;">No hay turnos en espera</p>
+            <p style="color: #bbb; margin-top: 0.5rem;">Todos los turnos han sido atendidos</p>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<style>
+    .badge {
+        display: inline-block;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    .badge-warning {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+    
+    .badge-info {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+    
+    .badge-success {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+    }
+    
+    .badge-secondary {
+        background: linear-gradient(135deg, #a8a8a8 0%, #7f7f7f 100%);
+        color: white;
+    }
+    
+    .table-modern tbody tr {
+        transition: all 0.3s ease;
+    }
+    
+    .table-modern tbody tr:hover {
+        background-color: #f0f4ff !important;
+        transform: translateX(5px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    @media (max-width: 768px) {
+        .table-modern {
+            font-size: 0.9rem;
+        }
+        
+        .table-modern th,
+        .table-modern td {
+            padding: 0.75rem !important;
+        }
+        
+        h1 {
+            font-size: 1.4rem !important;
+        }
+    }
+</style>
+
+<!-- Auto-refresh cada 30 segundos -->
+<script>
+    setTimeout(function() {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}

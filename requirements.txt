@@ -1,0 +1,29 @@
+# Dependencias del Sistema de Gestión de Turnos
+# Instalar con: pip install -r requirements.txt
+
+# Framework web principal
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# Base de datos y ORM
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.36
+
+# Autenticación de usuarios
+Flask-Login==0.6.2
+
+# WebSockets para notificaciones en tiempo real
+Flask-SocketIO==5.3.4
+python-socketio==5.9.0
+python-engineio==4.7.1
+
+# Utilidades
+python-dotenv==1.0.0  # Para variables de entorno
+email-validator==2.0.0  # Para validar emails
+
+# Servidor WSGI para producción
+gunicorn==21.2.0
+eventlet==0.33.3  # Para WebSockets en producción
+
+# Base de datos PostgreSQL (para Render, Railway, etc.)
+psycopg2-binary==2.9.9

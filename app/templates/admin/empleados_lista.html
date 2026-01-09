@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Empleados - Sistema de Turnos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    {% include 'components/sidebar.html' %}
+    
+    <div class="main-content-with-sidebar">
+        <div class="container" style="max-width: 1200px; padding: 2rem;">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div>
+                    <h1 style="margin: 0;"><i class="fas fa-user-tie"></i> Empleados</h1>
+                    <p style="color: var(--text-secondary); margin: 0.5rem 0 0;">Gestión de empleados</p>
+                </div>
+                <a href="{{ url_for('admin.empleado_nuevo') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Empleado
+                </a>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <form method="GET" style="display: flex; gap: 1rem;">
+                    <input type="text" name="search" class="form-control" placeholder="Buscar..." value="{{ search }}">
+                    <button type="submit" class="btn btn-secondary"><i class="fas fa-search"></i></button>
+                    {% if search %}<a href="{{ url_for('admin.empleados_lista') }}" class="btn btn-secondary"><i class="fas fa-times"></i></a>{% endif %}
+                </form>
+            </div>
+
+            <div class="card">
+                <div class="table-header">
+                    <p class="table-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Mostrando {{ empleados.items|length }} de {{ empleados.total }} empleados
+                    </p>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table-modern">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Cargo</th>
+                                <th>Trámites</th>
+                                <th>Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if empleados.items %}
+                                {% for emp in empleados.items %}
+                                    <tr>
+                                        <td>
+                                            <div class="user-cell">
+                                                <i class="fas fa-user-tie" style="font-size: 1.5rem; color: var(--primary-color);"></i>
+                                                <strong>{{ emp.nombre }}</strong>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if emp.email %}
+                                                <a href="mailto:{{ emp.email }}" style="color: var(--primary-color); text-decoration: none;">
+                                                    <i class="fas fa-envelope"></i> {{ emp.email }}
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if emp.telefono %}
+                                                <i class="fas fa-phone"></i> {{ emp.telefono }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if emp.cargo %}
+                                                <span class="badge-outline">{{ emp.cargo }}</span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-info" title="{{ emp.tramites_asignados|length }} trámites asignados">
+                                                <i class="fas fa-briefcase"></i> {{ emp.tramites_asignados|length }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if emp.activo %}
+                                                <span class="badge badge-success"><i class="fas fa-check-circle"></i> Activo</span>
+                                            {% else %}
+                                                <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Inactivo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="action-buttons">
+                                                <a href="{{ url_for('admin.empleado_editar', id=emp.id) }}" 
+                                                   class="btn-icon btn-icon-warning" title="Editar empleado">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% if current_user.id != emp.id %}
+                                                    <button onclick="eliminarEmpleado({{ emp.id }}, '{{ emp.nombre }}')" 
+                                                            class="btn-icon btn-icon-danger" title="Eliminar empleado">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center">
+                                        <div class="empty-state">
+                                            <i class="fas fa-inbox"></i>
+                                            <p>No se encontraron empleados</p>
+                                            {% if search %}
+                                                <a href="{{ url_for('admin.empleados_lista') }}" class="btn btn-secondary btn-sm">
+                                                    Ver todos los empleados
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if empleados.pages > 1 %}
+                    <div class="pagination-container">
+                        <div class="pagination-info">
+                            Página {{ empleados.page }} de {{ empleados.pages }}
+                        </div>
+                        <div class="pagination-controls">
+                            {% if empleados.has_prev %}
+                                <a href="{{ url_for('admin.empleados_lista', page=1, search=search) }}" 
+                                   class="btn-pagination" title="Primera página">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                                <a href="{{ url_for('admin.empleados_lista', page=empleados.prev_num, search=search) }}" 
+                                   class="btn-pagination">
+                                    <i class="fas fa-chevron-left"></i> Anterior
+                                </a>
+                            {% else %}
+                                <button class="btn-pagination" disabled>
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button class="btn-pagination" disabled>
+                                    <i class="fas fa-chevron-left"></i> Anterior
+                                </button>
+                            {% endif %}
+                            
+                            <div class="pagination-pages">
+                                {% for p in range(1, empleados.pages + 1) %}
+                                    {% if p == empleados.page %}
+                                        <span class="btn-pagination active">{{ p }}</span>
+                                    {% elif p == 1 or p == empleados.pages or (p >= empleados.page - 2 and p <= empleados.page + 2) %}
+                                        <a href="{{ url_for('admin.empleados_lista', page=p, search=search) }}" class="btn-pagination">
+                                            {{ p }}
+                                        </a>
+                                    {% elif p == empleados.page - 3 or p == empleados.page + 3 %}
+                                        <span class="pagination-ellipsis">...</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            
+                            {% if empleados.has_next %}
+                                <a href="{{ url_for('admin.empleados_lista', page=empleados.next_num, search=search) }}" 
+                                   class="btn-pagination">
+                                    Siguiente <i class="fas fa-chevron-right"></i>
+                                </a>
+                                <a href="{{ url_for('admin.empleados_lista', page=empleados.pages, search=search) }}" 
+                                   class="btn-pagination" title="Última página">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            {% else %}
+                                <button class="btn-pagination" disabled>
+                                    Siguiente <i class="fas fa-chevron-right"></i>
+                                </button>
+                                <button class="btn-pagination" disabled>
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación personalizado -->
+    <div id="modalConfirmacion" class="modal-confirmacion">
+        <div class="modal-confirmacion-contenido">
+            <div class="modal-confirmacion-icono" id="modalIcono">⚠️</div>
+            <h3 class="modal-confirmacion-titulo" id="modalTitulo">Confirmar acción</h3>
+            <p class="modal-confirmacion-mensaje" id="modalMensaje"></p>
+            <div class="modal-confirmacion-botones">
+                <button class="btn-cancelar" onclick="cerrarModalConfirmacion()">Cancelar</button>
+                <button class="btn-confirmar" id="btnConfirmarAccion">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function mostrarModalConfirmacion(titulo, mensaje, icono, callback) {
+        document.getElementById('modalTitulo').textContent = titulo;
+        document.getElementById('modalMensaje').textContent = mensaje;
+        document.getElementById('modalIcono').textContent = icono;
+        
+        const modal = document.getElementById('modalConfirmacion');
+        modal.classList.add('active');
+        
+        document.getElementById('btnConfirmarAccion').onclick = function() {
+            cerrarModalConfirmacion();
+            if (callback) callback();
+        };
+    }
+
+    function cerrarModalConfirmacion() {
+        document.getElementById('modalConfirmacion').classList.remove('active');
+    }
+
+    function mostrarNotificacionToast(mensaje, tipo = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `notificacion-toast notificacion-${tipo}`;
+        toast.textContent = mensaje;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    function eliminarEmpleado(id, nombre) {
+        mostrarModalConfirmacion(
+            '🗑️ Eliminar Empleado',
+            `¿Está seguro de que desea eliminar al empleado "${nombre}"?\n\nEsta acción no se puede deshacer.`,
+            '⚠️',
+            function() {
+                fetch(`/admin/empleados/${id}/eliminar`, {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        mostrarNotificacionToast('✅ Empleado eliminado exitosamente', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        mostrarNotificacionToast('❌ Error: ' + data.message, 'error');
+                    }
+                })
+                .catch(() => mostrarNotificacionToast('❌ Error al eliminar', 'error'));
+            }
+        );
+    }
+    </script>
+
+    <style>
+    /* Modal de confirmación personalizado */
+    .modal-confirmacion {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal-confirmacion.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-confirmacion-contenido {
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        animation: slideUp 0.3s ease;
+        text-align: center;
+    }
+
+    .modal-confirmacion-icono {
+        width: 70px;
+        height: 70px;
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+
+    .modal-confirmacion-titulo {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .modal-confirmacion-mensaje {
+        color: #666;
+        margin-bottom: 2rem;
+        line-height: 1.5;
+        white-space: pre-line;
+    }
+
+    .modal-confirmacion-botones {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .modal-confirmacion-botones button {
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+
+    .btn-confirmar {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+
+    .btn-confirmar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+    }
+
+    .btn-cancelar {
+        background: #e0e0e0;
+        color: #333;
+    }
+
+    .btn-cancelar:hover {
+        background: #d0d0d0;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    </style>
+</body>
+</html>

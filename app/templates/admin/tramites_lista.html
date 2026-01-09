@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trámites - Sistema de Turnos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    {% include 'components/sidebar.html' %}
+    
+    <div class="main-content-with-sidebar">
+        <div class="container" style="max-width: 1200px; padding: 2rem;">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div>
+                    <h1 style="margin: 0;"><i class="fas fa-file-alt"></i> Tipos de Trámites</h1>
+                    <p style="color: var(--text-secondary); margin: 0.5rem 0 0;">Gestión de tipos de trámites</p>
+                </div>
+                <a href="{{ url_for('admin.tramite_nuevo') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Trámite
+                </a>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <form method="GET" style="display: flex; gap: 1rem;">
+                    <input type="text" name="search" class="form-control" placeholder="Buscar trámites..." value="{{ search }}">
+                    <button type="submit" class="btn btn-secondary"><i class="fas fa-search"></i></button>
+                    {% if search %}<a href="{{ url_for('admin.tramites_lista') }}" class="btn btn-secondary"><i class="fas fa-times"></i></a>{% endif %}
+                </form>
+            </div>
+
+            <div class="card">
+                <div class="table-header">
+                    <p class="table-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Mostrando {{ tramites.items|length }} de {{ tramites.total }} trámites
+                    </p>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table-modern">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Descripción</th>
+                                <th>Tiempo Estimado</th>
+                                <th>Empleados</th>
+                                <th>Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if tramites.items %}
+                                {% for tramite in tramites.items %}
+                                    <tr>
+                                        <td>
+                                            <div class="user-cell">
+                                                <i class="fas fa-file-alt" style="font-size: 1.3rem; color: var(--info-color);"></i>
+                                                <strong>{{ tramite.nombre }}</strong>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if tramite.descripcion %}
+                                                {{ tramite.descripcion }}
+                                            {% else %}
+                                                <span class="text-muted">Sin descripción</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge-outline">
+                                                <i class="fas fa-clock"></i> {{ tramite.tiempo_estimado }} min
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-info" title="{{ tramite.empleados_asignados.count() }} empleados asignados">
+                                                <i class="fas fa-users"></i> {{ tramite.empleados_asignados.count() }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if tramite.activo %}
+                                                <span class="badge badge-success"><i class="fas fa-check-circle"></i> Activo</span>
+                                            {% else %}
+                                                <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Inactivo</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="action-buttons">
+                                                <a href="{{ url_for('admin.tramite_editar', id=tramite.id) }}" 
+                                                   class="btn-icon btn-icon-warning" title="Editar trámite">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button onclick="eliminarTramite({{ tramite.id }}, '{{ tramite.nombre }}')" 
+                                                        class="btn-icon btn-icon-danger" title="Eliminar trámite">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center">
+                                        <div class="empty-state">
+                                            <i class="fas fa-inbox"></i>
+                                            <p>No se encontraron trámites</p>
+                                            {% if search %}
+                                                <a href="{{ url_for('admin.tramites_lista') }}" class="btn btn-secondary btn-sm">
+                                                    Ver todos los trámites
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if tramites.pages > 1 %}
+                    <div class="pagination-container">
+                        <div class="pagination-info">
+                            Página {{ tramites.page }} de {{ tramites.pages }}
+                        </div>
+                        <div class="pagination-controls">
+                            {% if tramites.has_prev %}
+                                <a href="{{ url_for('admin.tramites_lista', page=1, search=search) }}" 
+                                   class="btn-pagination" title="Primera página">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                                <a href="{{ url_for('admin.tramites_lista', page=tramites.prev_num, search=search) }}" 
+                                   class="btn-pagination">
+                                    <i class="fas fa-chevron-left"></i> Anterior
+                                </a>
+                            {% else %}
+                                <button class="btn-pagination" disabled>
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button class="btn-pagination" disabled>
+                                    <i class="fas fa-chevron-left"></i> Anterior
+                                </button>
+                            {% endif %}
+                            
+                            <div class="pagination-pages">
+                                {% for p in range(1, tramites.pages + 1) %}
+                                    {% if p == tramites.page %}
+                                        <span class="btn-pagination active">{{ p }}</span>
+                                    {% elif p == 1 or p == tramites.pages or (p >= tramites.page - 2 and p <= tramites.page + 2) %}
+                                        <a href="{{ url_for('admin.tramites_lista', page=p, search=search) }}" class="btn-pagination">
+                                            {{ p }}
+                                        </a>
+                                    {% elif p == tramites.page - 3 or p == tramites.page + 3 %}
+                                        <span class="pagination-ellipsis">...</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            
+                            {% if tramites.has_next %}
+                                <a href="{{ url_for('admin.tramites_lista', page=tramites.next_num, search=search) }}" 
+                                   class="btn-pagination">
+                                    Siguiente <i class="fas fa-chevron-right"></i>
+                                </a>
+                                <a href="{{ url_for('admin.tramites_lista', page=tramites.pages, search=search) }}" 
+                                   class="btn-pagination" title="Última página">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            {% else %}
+                                <button class="btn-pagination" disabled>
+                                    Siguiente <i class="fas fa-chevron-right"></i>
+                                </button>
+                                <button class="btn-pagination" disabled>
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación personalizado -->
+    <div id="modalConfirmacion" class="modal-confirmacion">
+        <div class="modal-confirmacion-contenido">
+            <div class="modal-confirmacion-icono" id="modalIcono">⚠️</div>
+            <h3 class="modal-confirmacion-titulo" id="modalTitulo">Confirmar acción</h3>
+            <p class="modal-confirmacion-mensaje" id="modalMensaje"></p>
+            <div class="modal-confirmacion-botones">
+                <button class="btn-cancelar" onclick="cerrarModalConfirmacion()">Cancelar</button>
+                <button class="btn-confirmar" id="btnConfirmarAccion">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function mostrarModalConfirmacion(titulo, mensaje, icono, callback) {
+        document.getElementById('modalTitulo').textContent = titulo;
+        document.getElementById('modalMensaje').textContent = mensaje;
+        document.getElementById('modalIcono').textContent = icono;
+        
+        const modal = document.getElementById('modalConfirmacion');
+        modal.classList.add('active');
+        
+        document.getElementById('btnConfirmarAccion').onclick = function() {
+            cerrarModalConfirmacion();
+            if (callback) callback();
+        };
+    }
+
+    function cerrarModalConfirmacion() {
+        document.getElementById('modalConfirmacion').classList.remove('active');
+    }
+
+    function mostrarNotificacionToast(mensaje, tipo = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `notificacion-toast notificacion-${tipo}`;
+        toast.textContent = mensaje;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => toast.classList.add('show'), 100);
+        
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    function eliminarTramite(id, nombre) {
+        mostrarModalConfirmacion(
+            '🗑️ Eliminar Trámite',
+            `¿Está seguro de que desea eliminar el trámite "${nombre}"?\n\nNo se puede eliminar si tiene turnos asociados.`,
+            '⚠️',
+            function() {
+                fetch(`/admin/tramites/${id}/eliminar`, {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        mostrarNotificacionToast('✅ Trámite eliminado exitosamente', 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        mostrarNotificacionToast('❌ Error: ' + data.message, 'error');
+                    }
+                })
+                .catch(() => mostrarNotificacionToast('❌ Error al eliminar', 'error'));
+            }
+        );
+    }
+    </script>
+
+    <style>
+    /* Modal de confirmación personalizado */
+    .modal-confirmacion {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal-confirmacion.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-confirmacion-contenido {
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        animation: slideUp 0.3s ease;
+        text-align: center;
+    }
+
+    .modal-confirmacion-icono {
+        width: 70px;
+        height: 70px;
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+
+    .modal-confirmacion-titulo {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+
+    .modal-confirmacion-mensaje {
+        color: #666;
+        margin-bottom: 2rem;
+        line-height: 1.5;
+        white-space: pre-line;
+    }
+
+    .modal-confirmacion-botones {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .modal-confirmacion-botones button {
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+
+    .btn-confirmar {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+
+    .btn-confirmar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+    }
+
+    .btn-cancelar {
+        background: #e0e0e0;
+        color: #333;
+    }
+
+    .btn-cancelar:hover {
+        background: #d0d0d0;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    </style>
+</body>
+</html>

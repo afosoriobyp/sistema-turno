@@ -1,0 +1,63 @@
+# Archivos y directorios a ignorar en Git
+
+# Entorno virtual de Python
+venv/
+env/
+ENV/
+.venv/
+
+# Archivos de Python compilados
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Base de datos SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Variables de entorno
+.env
+.env.local
+
+# Archivos de configuración de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de respaldo
+*.bak
+*.backup
+
+# Carpeta de distribución
+dist/
+build/
+*.egg-info/
+
+# Archivos de prueba
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Archivos temporales
+tmp/
+temp/
+*.tmp
+
+# Carpeta instance con base de datos
+instance/
+!instance/.gitkeep
+
+# Archivos de sesiones
+flask_session/

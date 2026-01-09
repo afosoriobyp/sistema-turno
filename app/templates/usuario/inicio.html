@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio - Sistema de Turnos{% endblock %}
+
+{% block content %}
+<div class="inicio-container">
+    <div class="logo-section">
+        <h1>🎫 Sistema de Gestión de Turnos</h1>
+        <p class="subtitle">Bienvenido al sistema de atención</p>
+    </div>
+    
+    <div class="inicio-card">
+                
+        <button onclick="continuar()" class="btn btn-primary btn-large">
+            Solicitar Turno
+        </button>
+        
+        <button onclick="verTurnos()" class="btn btn-secondary btn-large" style="margin-top: 1rem;">
+            <i class="fas fa-list-ol"></i> Ver Turnos Solicitados
+        </button>
+    </div>
+    
+    <div class="footer-info">
+        <p>📞 Para asistencia, comuníquese con el personal</p>
+    </div>
+</div>
+
+<script>
+    /**
+     * Escucha el evento Enter en el campo de código de barras
+     * para simular el escaneo automático
+     */
+    document.getElementById('barcodeInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            continuar();
+        }
+    });
+    
+    /**
+     * Redirige al formulario de solicitud de turno
+     */
+    function continuar() {
+        window.location.href = '{{ url_for("usuario.formulario") }}';
+    }
+    
+    /**
+     * Redirige a la vista de turnos solicitados
+     */
+    function verTurnos() {
+        window.location.href = '{{ url_for("usuario.turnos_solicitados") }}';
+    }
+    
+    // Auto-focus en el campo de entrada al cargar la página
+    window.onload = function() {
+        document.getElementById('barcodeInput').focus();
+    };
+</script>
+{% endblock %}
