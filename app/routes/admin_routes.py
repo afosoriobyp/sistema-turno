@@ -116,6 +116,99 @@ def crear_admin_sistema():
         """, 500
 
 
+# ===== ENDPOINT TEMPORAL PARA DIAGNOSTICAR USUARIOS/EMPLEADOS =====
+
+@admin_bp.route('/diagnosticar-usuarios-empleados')
+def diagnosticar_usuarios_empleados():
+    """
+    Endpoint temporal para ver la relación entre UsuarioSistema y Empleado.
+    ⚠️ ELIMINAR DESPUÉS DE DIAGNOSTICAR
+    """
+    try:
+        usuarios = UsuarioSistema.query.all()
+        empleados = Empleado.query.all()
+        
+        html = """
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #4CAF50; color: white; }
+            .error { color: red; font-weight: bold; }
+            .ok { color: green; }
+        </style>
+        <h2>🔍 Diagnóstico de Usuarios y Empleados</h2>
+        
+        <h3>📋 Empleados en la BD:</h3>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Usuario</th>
+                <th>Activo</th>
+            </tr>
+        """
+        
+        for emp in empleados:
+            html += f"""
+            <tr>
+                <td>{emp.id}</td>
+                <td>{emp.nombre}</td>
+                <td>{emp.email or 'N/A'}</td>
+                <td>{emp.usuario or 'N/A'}</td>
+                <td>{'✅' if emp.activo else '❌'}</td>
+            </tr>
+            """
+        
+        html += """
+        </table>
+        
+        <h3>👤 UsuariosSistema en la BD:</h3>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Email</th>
+                <th>Nombre</th>
+                <th>Empleado ID</th>
+                <th>Empleado Existe</th>
+                <th>Es Superadmin</th>
+                <th>Activo</th>
+            </tr>
+        """
+        
+        for usr in usuarios:
+            empleado_existe = Empleado.query.get(usr.empleado_id) if usr.empleado_id else None
+            existe_class = 'ok' if empleado_existe or not usr.empleado_id or usr.es_superadmin else 'error'
+            existe_text = '✅' if empleado_existe else ('N/A' if not usr.empleado_id or usr.es_superadmin else '❌ ERROR')
+            
+            html += f"""
+            <tr>
+                <td>{usr.id}</td>
+                <td>{usr.email}</td>
+                <td>{usr.nombre}</td>
+                <td>{usr.empleado_id or 'NULL'}</td>
+                <td class="{existe_class}">{existe_text}</td>
+                <td>{'✅' if usr.es_superadmin else '❌'}</td>
+                <td>{'✅' if usr.activo else '❌'}</td>
+            </tr>
+            """
+        
+        html += """
+        </table>
+        <p><a href="/admin/dashboard" style="background: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">← Volver al Dashboard</a></p>
+        """
+        
+        return html, 200
+        
+    except Exception as e:
+        return f"""
+        <h2>❌ Error al diagnosticar</h2>
+        <p>{str(e)}</p>
+        <p><a href="/admin/dashboard">Volver al dashboard</a></p>
+        """, 500
+
+
 # ===== RUTA DE LOGIN =====
 
 @admin_bp.route('/login', methods=['GET', 'POST'])
