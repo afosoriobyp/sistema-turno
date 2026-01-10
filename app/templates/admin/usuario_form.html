@@ -44,7 +44,7 @@
                     <input type="hidden" 
                            id="nombre" 
                            name="nombre" 
-                           value="{{ usuario.nombre if usuario else '' }}"
+                           value="{{ usuario.nombre if usuario else '' }}">
                    
                     <div class="form-group" id="empleado_field" style="display: {{ 'none' if usuario and usuario.es_superadmin else 'block' }};">
                         <label for="empleado_id">Empleado Asignado</label>
@@ -53,6 +53,10 @@
                             {% for empleado in empleados %}
                                 <option value="{{ empleado.id }}" 
                                         {{ 'selected' if usuario and usuario.empleado_id == empleado.id else '' }}>
+                                    {{ empleado.nombre }} ({{ empleado.cargo or 'Sin cargo' }})
+                                </option>
+                            {% endfor %}
+                        </select>
                                     {{ empleado.nombre }} ({{ empleado.cargo or 'Sin cargo' }})
                                 </option>
                             {% endfor %}
