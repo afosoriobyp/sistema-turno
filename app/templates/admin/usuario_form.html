@@ -182,6 +182,7 @@
     </style>
 
     <script>
+    <script>
         function toggleEmpleadoField() {
             const superadminCheck = document.getElementById('es_superadmin');
             const empleadoField = document.getElementById('empleado_field');
@@ -192,7 +193,7 @@
             
             // Si es superadmin, asignar nombre y limpiar empleado
             if (superadminCheck.checked) {
-                campoNombre.value = campoNombre.value || 'Administrador del Sistema';
+                campoNombre.value = 'Administrador del Sistema';
                 selectEmpleado.value = '';
             } else {
                 // Si no es superadmin, sincronizar con empleado si hay uno
@@ -204,15 +205,20 @@
             const selectEmpleado = document.getElementById('empleado_id');
             const campoNombre = document.getElementById('nombre');
             
+            console.log('[DEBUG] sincronizarNombre ejecutado');
+            console.log('[DEBUG] Empleado seleccionado:', selectEmpleado.value);
+            
             if (selectEmpleado.value) {
                 // Obtener el texto de la opción seleccionada
                 const textoOpcion = selectEmpleado.options[selectEmpleado.selectedIndex].text;
                 // Extraer solo el nombre (antes del paréntesis)
                 const nombre = textoOpcion.split('(')[0].trim();
                 campoNombre.value = nombre;
+                console.log('[DEBUG] Nombre asignado:', nombre);
             } else {
-                // Si no hay empleado seleccionado, limpiar el nombre
+                // Si no hay empleado seleccionado, limpiar
                 campoNombre.value = '';
+                console.log('[DEBUG] Campo nombre limpiado');
             }
         }
 
@@ -222,17 +228,20 @@
             const superadminCheck = document.getElementById('es_superadmin');
             const campoNombre = document.getElementById('nombre');
             
+            console.log('[DEBUG] Página cargada');
+            console.log('[DEBUG] Empleado inicial:', selectEmpleado.value);
+            console.log('[DEBUG] Es superadmin:', superadminCheck.checked);
+            console.log('[DEBUG] Nombre inicial:', campoNombre.value);
+            
             // Si hay empleado seleccionado al cargar, sincronizar
             if (selectEmpleado.value) {
                 sincronizarNombre();
             } else if (superadminCheck.checked) {
-                // Si es superadmin sin empleado, asegurar que tenga nombre
+                // Si es superadmin sin empleado, asignar nombre
                 if (!campoNombre.value) {
                     campoNombre.value = 'Administrador del Sistema';
                 }
             }
-        });
-            sincronizarNombre();
         });
     </script>
 </body>
