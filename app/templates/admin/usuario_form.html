@@ -193,11 +193,19 @@
         function toggleEmpleadoField() {
             const superadminCheck = document.getElementById('es_superadmin');
             const empleadoField = document.getElementById('empleado_field');
+            const campoNombre = document.getElementById('nombre');
+            const selectEmpleado = document.getElementById('empleado_id');
+            
             empleadoField.style.display = superadminCheck.checked ? 'none' : 'block';
             
-            // Si es superadmin, limpiar el nombre
+            // Si es superadmin
             if (superadminCheck.checked) {
-                document.getElementById('nombre').value = 'Superadministrador';
+                campoNombre.value = campoNombre.value || 'Superadministrador';
+                campoNombre.removeAttribute('readonly');
+                selectEmpleado.value = '';
+            } else {
+                // Si no es superadmin, sincronizar con empleado si hay uno
+                sincronizarNombre();
             }
         }
 
@@ -211,13 +219,37 @@
                 // Extraer solo el nombre (antes del paréntesis)
                 const nombre = textoOpcion.split('(')[0].trim();
                 campoNombre.value = nombre;
+                // Hacer el campo readonly cuando se auto-completa desde empleado
+                campoNombre.setAttribute('readonly', 'readonly');
             } else {
-                campoNombre.value = '';
+                // Si no hay empleado seleccionado, permitir edición
+                campoNombre.removeAttribute('readonly');
+                if (!campoNombre.value) {
+                    campoNombre.value = '';
+                }
             }
         }
 
         // Sincronizar al cargar la página si hay un empleado seleccionado
         document.addEventListener('DOMContentLoaded', function() {
+            const selectEmpleado = document.getElementById('empleado_id');
+            const superadminCheck = document.getElementById('es_superadmin');
+            const campoNombre = document.getElementById('nombre');
+            
+            // Si hay empleado seleccionado al cargar, sincronizar
+            if (selectEmpleado.value) {
+                sincronizarNombre();
+            } else if (superadminCheck.checked) {
+                // Si es superadmin sin empleado, asegurar que el nombre esté presente
+                if (!campoNombre.value) {
+                    campoNombre.value = 'Superadministrador';
+                }
+                campoNombre.removeAttribute('readonly');
+            } else {
+                // Sin empleado y sin superadmin, permitir edición libre
+                campoNombre.removeAttribute('readonly');
+            }
+        });
             sincronizarNombre();
         });
     </script>
