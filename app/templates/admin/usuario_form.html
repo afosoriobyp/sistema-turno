@@ -41,18 +41,10 @@
                                required>
                     </div>
 
-                    <div class="form-group">
-                        <label for="nombre">Nombre Completo <span class="required">*</span></label>
-                        <input type="text" 
-                               id="nombre" 
-                               name="nombre" 
-                               class="form-control" 
-                               value="{{ usuario.nombre if usuario else '' }}"
-                               required>
-                        <small class="form-text">
-                            Se actualizará automáticamente si selecciona un empleado
-                        </small>
-                    </div>
+                    <input type="hidden" 
+                           id="nombre" 
+                           name="nombre" 
+                           value="{{ usuario.nombre if usuario else '' }}"
                    
                     <div class="form-group" id="empleado_field" style="display: {{ 'none' if usuario and usuario.es_superadmin else 'block' }};">
                         <label for="empleado_id">Empleado Asignado</label>
@@ -198,10 +190,9 @@
             
             empleadoField.style.display = superadminCheck.checked ? 'none' : 'block';
             
-            // Si es superadmin
+            // Si es superadmin, asignar nombre y limpiar empleado
             if (superadminCheck.checked) {
-                campoNombre.value = campoNombre.value || 'Superadministrador';
-                campoNombre.removeAttribute('readonly');
+                campoNombre.value = campoNombre.value || 'Administrador del Sistema';
                 selectEmpleado.value = '';
             } else {
                 // Si no es superadmin, sincronizar con empleado si hay uno
@@ -219,18 +210,13 @@
                 // Extraer solo el nombre (antes del paréntesis)
                 const nombre = textoOpcion.split('(')[0].trim();
                 campoNombre.value = nombre;
-                // Hacer el campo readonly cuando se auto-completa desde empleado
-                campoNombre.setAttribute('readonly', 'readonly');
             } else {
-                // Si no hay empleado seleccionado, permitir edición
-                campoNombre.removeAttribute('readonly');
-                if (!campoNombre.value) {
-                    campoNombre.value = '';
-                }
+                // Si no hay empleado seleccionado, limpiar el nombre
+                campoNombre.value = '';
             }
         }
 
-        // Sincronizar al cargar la página si hay un empleado seleccionado
+        // Sincronizar al cargar la página
         document.addEventListener('DOMContentLoaded', function() {
             const selectEmpleado = document.getElementById('empleado_id');
             const superadminCheck = document.getElementById('es_superadmin');
@@ -240,14 +226,10 @@
             if (selectEmpleado.value) {
                 sincronizarNombre();
             } else if (superadminCheck.checked) {
-                // Si es superadmin sin empleado, asegurar que el nombre esté presente
+                // Si es superadmin sin empleado, asegurar que tenga nombre
                 if (!campoNombre.value) {
-                    campoNombre.value = 'Superadministrador';
+                    campoNombre.value = 'Administrador del Sistema';
                 }
-                campoNombre.removeAttribute('readonly');
-            } else {
-                // Sin empleado y sin superadmin, permitir edición libre
-                campoNombre.removeAttribute('readonly');
             }
         });
             sincronizarNombre();
